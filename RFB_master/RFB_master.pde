@@ -83,6 +83,9 @@ byte day_cycle_state_ = ACTIVE;
 
 #define ACTIVE_DURATION_MS 14400000UL    // 4 hours
 #define SLEEPING_DURATION_MS 64800000UL // 18 hours
+// If this is > 0, then only standby for the specified time.  Otherwise, standby
+// indefinitely until the SOLAR_STATE transitions back to night.
+#define STANDBY_DURATION_MS 7200000UL // 2 hours
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_FRACTION .85
@@ -236,14 +239,15 @@ void InitActiveCycle() {
 }
 
 void CheckForDayCycleTransition(unsigned long now) {
-  if (SolarTransition(now, &solar_state_)) {
-    if (solar_state_ == NIGHT) {
-      // Sun just set.  Wake up, little vampire.
-      day_cycle_state_ = ACTIVE;
-      // Reset Day-cycle clock.
-      last_cycle_transition = now;
-      InitActiveCycle();
-    }
+  if ((STANDBY_DURATION_MS > 0 &&
+       day_cycle_state_ == STANDBY &&
+       IsTimerExpired(now, &last_cycle_transition, STANDBY_DURATION_MS)) ||
+      (SolarTransition(now, &solar_state_) && solar_state_ == NIGHT)) {
+    // Sun just set.  Wake up, little vampire.
+    day_cycle_state_ = ACTIVE;
+    // Reset Day-cycle clock.
+    last_cycle_transition = now;
+    InitActiveCycle();
   }
   if (day_cycle_state_ == ACTIVE &&
       IsTimerExpired(now, &last_cycle_transition, ACTIVE_DURATION_MS)) {

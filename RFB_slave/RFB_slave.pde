@@ -17,11 +17,17 @@ Date: September 16, 2010
 #include <SleepControl.h>
 #include <Twinkler.h>
 
-/***************** Early Definitions ******************/
-#define FIRMWAREVERSION 11 // 1.1	, version number needs to fit in byte (0~255) to be able to store it into config
+// Puck-Specific Configuration
+#define RTS_ID 10           // The Unique ID of this RFBee.
+#define V_DIV_FACTOR 0.25180
+// TODO(madadam): Where is this loss coming from?  I think it's the difference
+// between the predicted voltage (by voltage divider math) at PDC3 and the
+// actual voltage there.
+#define FUDGE_FACTOR 1.051
 
-#define RTS_ID 13           // The Unique ID of this RFBee.
-static char versionblurb[20] = "v.5.0 - SLAVE"; 
+/***************** Early Definitions ******************/
+static char versionblurb[20] = "v.0.6 - SLAVE"; 
+#define FIRMWAREVERSION 11 // 1.1, version number needs to fit in byte (0~255) to be able to store it into config
 //#define FACTORY_SELFTEST
 //#define INTERRUPT_RECEIVE
 /****************************************************/
@@ -76,8 +82,10 @@ int pin_number[NUM_LEDS];
 unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 
 // Voltage thresholder settings.
-#define VOLTAGE_THRESHOLD_FRACTION .97
-#define VOLTAGE_HISTERESIS_FRACTION .02
+#define VOLTAGE_THRESHOLD_WINDOW_SEC 30
+#define VOLTAGE_THRESHOLD_LOW 3.77
+#define VOLTAGE_THRESHOLD_HIGH 3.85
+
 #define VOLTAGE_WINDOW_LEN 10
 #define LOW_VOLTAGE_SLEEP_TIME_SEC 3600  // One hour
 SmoothedThreshold voltage_threshold_;
@@ -185,18 +193,9 @@ void setup(){
 }
 
 void InitVoltageThresholder() {
-  const int kNumReadings = 10;
-  int reading_sum = 0;
-  // Take the average of a few readings to smooth noise.
-  for (int i = 0; i < kNumReadings; ++i) {
-    reading_sum += analogRead(VOLTAGE_READ_PIN);
-    delay(1);
-  }
-  voltage_threshold_.InitRelativeToInitialValue(reading_sum / kNumReadings,
-                                                VOLTAGE_THRESHOLD_FRACTION,
-                                                VOLTAGE_HISTERESIS_FRACTION,
-                                                VOLTAGE_WINDOW_LEN);
-  // TODO(madadam): Check that we're in STATE_HIGH now. (Otherwise do what?)
+  voltage_threshold_.Init(VOLTAGE_THRESHOLD_WINDOW_SEC,
+                          VOLTAGE_THRESHOLD_LOW,
+                          VOLTAGE_THRESHOLD_HIGH);
 }
 
 void RunStartupSequence() {
@@ -425,6 +424,13 @@ int IsTimerExpired(unsigned long now,
   return 0;
 }
 
+inline float ScaleVoltage(int raw_value) {
+  // Reference voltage.  Atmel docs say it's 1.1, but we don't have a capacitor
+  // and empirically using 1.05 seems closer.
+  #define VREF 1.05
+  return float(raw_value) * FUDGE_FACTOR * VREF / (1023.0 * V_DIV_FACTOR);
+}
+
 void MaybeReportStatus(unsigned long now) {
   if (IsTimerExpired(now, &last_status_report, STATUS_INTERVAL_MS)) {
     // DPrintln("\n---Status---");
@@ -436,13 +442,12 @@ void MaybeReportStatus(unsigned long now) {
     // TODO(madadam): Maybe the voltage reading should be in its own function.
     // But currently we want it at the same interval as status updates,
     // so it's fine here.
-    int voltage_reading;
-    voltage_reading = analogRead(VOLTAGE_READ_PIN);
-    voltage_threshold_.Update(voltage_reading);
+    int voltage_reading = analogRead(VOLTAGE_READ_PIN);
+    float scaled_voltage = ScaleVoltage(voltage_reading);
+    voltage_threshold_.Update(scaled_voltage, now);
     /*
     DPrintInt(" pc3", voltage_reading);
     // DPrintFloat(" v", voltage_threshold_.smoothed_value());
-    DPrintInt("", voltage_threshold_.low_threshold());
     DPrintByte("", voltage_threshold_.state());
     
     DPrintln();
@@ -463,6 +468,8 @@ void MaybeReportStatus(unsigned long now) {
     Serial.print(analogRead(SOLAR_PIN), DEC);
     Serial.print(" ");
     Serial.print(last_state, DEC);
+    Serial.print(" ");
+    Serial.print(voltage_threshold_.smoothed_value());
     Serial.println();
 
     num_rx_since_status = 0;
@@ -538,13 +545,8 @@ void MaybeSleep(unsigned long now) {
 
   // Low-voltage sleep.
   if (voltage_threshold_.state() == SmoothedThreshold::STATE_LOW) {
-    DPrintln("\nLO VOLTS");
+    DPrintln("\nLO V");
     FullSleepFor(LOW_VOLTAGE_SLEEP_TIME_SEC);
-    // On waking, take a few readings to update the running average.
-    for (int i = 0; i < VOLTAGE_WINDOW_LEN; ++i) {
-      voltage_threshold_.Update(analogRead(VOLTAGE_READ_PIN));
-      delay(1);
-    }
     return;
   }
 

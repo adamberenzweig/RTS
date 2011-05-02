@@ -44,6 +44,7 @@ class SmoothedThreshold(object):
 
       if self.size < self.window_length:
         self.size += elapsed_time
+        self.size = min(self.size, self.window_length)
       self.value = (
           (value * elapsed_time + self.value * (self.size - elapsed_time)) /
           self.size)
@@ -65,8 +66,16 @@ print D.shape
 
 r1 = 320
 r2 = 800
-fudge_factor = 1.215  # Why isn't voltage divider math working?
+fudge_factor = 1.22  # Why isn't voltage divider math working?
 voltage_factor = fudge_factor * 1.05 / (1023.0 * (r1/float(r1+r2)))
+inv_factor = 1.0/voltage_factor;
+
+USE_RAW_SCALING = False
+if USE_RAW_SCALING:
+  voltage_factor = 1.0
+else:
+  inv_factor = 1.0
+
 
 scaled_time = D[:,0]/float(1000*60*60)
 
@@ -86,7 +95,7 @@ p1b, = ax1.plot(scaled_time, smoothed_raw_voltage * voltage_factor,
 
 if len(sys.argv) > 2:
   vcc_data = ReadLog(sys.argv[2], 2)
-  p3, = ax1.plot(vcc_data[:,0]/float(1000*60*60), vcc_data[:,1],
+  p3, = ax1.plot(vcc_data[:,0]/float(1000*60*60), vcc_data[:,1] * inv_factor,
                  'g', label='vcc')
 
 plots = [p1, p1b, p2]

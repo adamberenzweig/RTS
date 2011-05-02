@@ -16,29 +16,17 @@ class SmoothedThreshold {
  public:
   SmoothedThreshold() {}
 
-  void InitRelativeToInitialValue(int initial_value,
-                                  float threshold_fraction,
-                                  float histeresis_fraction,
-                                  int window_length) {
-    int threshold = initial_value * threshold_fraction;
-    int histeresis = initial_value * histeresis_fraction;
-    Init(initial_value, threshold, histeresis, window_length);
-  }
+  void Init(float window_length_sec,
+            float low_threshold,
+            float hi_threshold) {
+    window_length_sec_ = window_length_sec;
+    smoothed_value_ = 0;
+    last_update_ms_ = 0;
+    size_sec_ = 0;
 
-  // The initial state is low iff initial_value < threshold.
-  // The initial value counts as one point in the buffer.
-  void Init(int initial_value, int threshold, int histeresis,
-            int window_length) {
-    window_length_ = window_length;
-    running_average_ = initial_value;
-    num_points_ = 1;
-    low_threshold_ = threshold - histeresis;
-    hi_threshold_ = threshold + histeresis;
-    if (initial_value < threshold) {
-      state_ = STATE_LOW;
-    } else {
-      state_ = STATE_HIGH;
-    }
+    low_threshold_ = low_threshold;
+    hi_threshold_ = hi_threshold;
+    state_ = STATE_HIGH;
   }
 
   enum STATE {
@@ -47,25 +35,33 @@ class SmoothedThreshold {
   };
 
   byte state() { return state_; }
-
-  float smoothed_value() { return running_average_; }
-
-  // FIXME
-  int low_threshold() { return low_threshold_; }
+  float smoothed_value() { return smoothed_value_; }
 
   // Returns true iff this update caused a state transition.
-  bool Update(int value) {
-    if (num_points_ < window_length_) { num_points_++; }
-    // To do this correctly we'd need a buffer of the whole window, but to save
-    // memory we just use a single value, so the running average is an estimate.
-    // As it is, this takes 56 bytes per object w/ class overhead.
-    running_average_ = (value + running_average_ * (num_points_ - 1))
-			/ num_points_;
+  bool Update(float value, unsigned long now_ms) {
+    if (0 == last_update_ms_) {
+      smoothed_value_ = value;
+    } else {
+      float elapsed_time =
+          min(float(now_ms - last_update_ms_)/1000.0, window_length_sec_);
+      if (size_sec_ < window_length_sec_) {
+        size_sec_ += elapsed_time;
+        size_sec_ = min(size_sec_, window_length_sec_);
+      }
+      // To do this correctly we'd need a buffer of the whole window, but to
+      // save memory we just use a single value, so the running average is an
+      // estimate.
+      smoothed_value_ =
+          (value * elapsed_time + smoothed_value_ * (size_sec_ - elapsed_time))
+          / size_sec_;
+    }
 
-    if (running_average_ < low_threshold_ && state_ == STATE_HIGH) {
+    last_update_ms_ = now_ms;
+
+    if (smoothed_value_ < low_threshold_ && state_ == STATE_HIGH) {
       state_ = STATE_LOW;
       return true;
-    } else if (running_average_ > hi_threshold_ && state_ == STATE_LOW) {
+    } else if (smoothed_value_ >= hi_threshold_ && state_ == STATE_LOW) {
       state_ = STATE_HIGH;
       return true;
     }
@@ -73,12 +69,14 @@ class SmoothedThreshold {
   }
 
  private:
-  int low_threshold_;
-  int hi_threshold_;
-  int window_length_;
+  float smoothed_value_;
+  float window_length_sec_;
+  // Filled window size.
+  float size_sec_;
+  unsigned long last_update_ms_;
 
-  float running_average_;
-  int num_points_;
+  float low_threshold_;
+  float hi_threshold_;
   byte state_;
 };
 

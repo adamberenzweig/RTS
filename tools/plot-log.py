@@ -88,7 +88,6 @@ p2, = ax2.plot(scaled_time, D[:,3], 'r', label='solar')
 
 smoother = SmoothedThreshold(1000 * 60 * 30)  # 30 minutes
 smoothed_raw_voltage = np.array([smoother.Update(d[2], d[0]) for d in D])
-print smoothed_raw_voltage
 
 p1b, = ax1.plot(scaled_time, smoothed_raw_voltage * voltage_factor,
                 'g.', label='smoothed')

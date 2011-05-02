@@ -18,12 +18,18 @@ Date: September 16, 2010
 #include <Twinkler.h>
 
 // Puck-Specific Configuration
-#define RTS_ID 10           // The Unique ID of this RFBee.
-#define V_DIV_FACTOR 0.25180
+#define RTS_ID 11           // The Unique ID of this RFBee.
+// Voltage divider ratio.
+// NOTE: Because of the fudge factor (see below), it's easiest to simply set
+// this to 1.0, include the voltage divider ratio in the fudge factor, and
+// measure the whole thing empirically.
+#define V_DIV_FACTOR 1.0
 // TODO(madadam): Where is this loss coming from?  I think it's the difference
 // between the predicted voltage (by voltage divider math) at PDC3 and the
 // actual voltage there.
-#define FUDGE_FACTOR 1.051
+// NOTE: As described above, this now contains the (inverse) voltage divider
+// ratio too.
+#define FUDGE_FACTOR 4.26
 
 /***************** Early Definitions ******************/
 static char versionblurb[20] = "v.0.6 - SLAVE"; 

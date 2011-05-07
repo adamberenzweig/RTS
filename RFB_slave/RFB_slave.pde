@@ -19,17 +19,31 @@ Date: September 16, 2010
 
 // Puck-Specific Configuration
 #define RTS_ID 11           // The Unique ID of this RFBee.
-// Voltage divider ratio.
-// NOTE: Because of the fudge factor (see below), it's easiest to simply set
-// this to 1.0, include the voltage divider ratio in the fudge factor, and
-// measure the whole thing empirically.
-#define V_DIV_FACTOR 1.0
-// TODO(madadam): Where is this loss coming from?  I think it's the difference
-// between the predicted voltage (by voltage divider math) at PDC3 and the
-// actual voltage there.
-// NOTE: As described above, this now contains the (inverse) voltage divider
-// ratio too.
-#define FUDGE_FACTOR 4.26
+
+// Voltage tuning factor.
+// A constant used to compute the puck's voltage from the raw values read
+// from the VOLTAGE_READ_PIN.
+//
+// This constant is determined empirically for each puck with the following
+// procedure:
+// 1. Set V_TUNING_FACTOR to 1.0, program the chip and place into the puck.
+// 2. Connect the debugger, open the Arduino console, and power up the puck.
+// 3. Examine the log output.  The last number on the log line is the voltage
+//    measurement.  It will be badly scaled because you haven't set the tuning
+//    factor yet. :)  Call it V_reported. In this example it's 1.01 volts:
+//       34716302 21648336 928 8 4 1.01
+// 4. Measure the actual voltage at Vcc using a meter.  Call this V_measured.
+// 5. Set V_TUNING_FACTOR = V_measured / V_reported.
+// 6. Re-program the chip and repeat this check.  The puck should now report the
+//    correct voltage.
+// 
+// Originally this was supposed to be the voltage divider ratio computed from
+// the values of the resistors we soldered onto the pucks.  But actual
+// resistance values need to be measured anyway, and even after doing that I
+// found we needed an extra fudge factor to get the pucks to report the correct
+// voltage (I never got to the bottom of why).  So the easiest thing is to just
+// incorporate everything into one number determined empirically.
+#define V_TUNING_FACTOR 4.04
 
 /***************** Early Definitions ******************/
 static char versionblurb[20] = "v.0.6 - SLAVE"; 
@@ -192,6 +206,9 @@ void setup(){
 #ifndef PRODUCTION  
   RunStartupSequence();
 #endif
+
+  delay(100);
+  ReportStatus(millis());
 
   // Turn the radio on last, otherwise we can get RX buffer overflows
   // if the radio is on but we're not consuming the data.
@@ -434,53 +451,57 @@ inline float ScaleVoltage(int raw_value) {
   // Reference voltage.  Atmel docs say it's 1.1, but we don't have a capacitor
   // and empirically using 1.05 seems closer.
   #define VREF 1.05
-  return float(raw_value) * FUDGE_FACTOR * VREF / (1023.0 * V_DIV_FACTOR);
+  return float(raw_value) * V_TUNING_FACTOR * VREF / 1023.0;
 }
 
 void MaybeReportStatus(unsigned long now) {
   if (IsTimerExpired(now, &last_status_report, STATUS_INTERVAL_MS)) {
-    // DPrintln("\n---Status---");
-#ifdef MEMORY_DEBUG
-    memrep();
-#endif
-    //DPrintUL("num_rx", num_rx_since_status);
-    
-    // TODO(madadam): Maybe the voltage reading should be in its own function.
-    // But currently we want it at the same interval as status updates,
-    // so it's fine here.
-    int voltage_reading = analogRead(VOLTAGE_READ_PIN);
-    float scaled_voltage = ScaleVoltage(voltage_reading);
-    voltage_threshold_.Update(scaled_voltage, now);
-    /*
-    DPrintInt(" pc3", voltage_reading);
-    // DPrintFloat(" v", voltage_threshold_.smoothed_value());
-    DPrintByte("", voltage_threshold_.state());
-    
-    DPrintln();
-    if (at_attention) {
-      DPrintln("At ATTN");
-    }
-    */
-
-    int solar_reading = analogRead(SOLAR_PIN);
-
-    // Logging.
-    Serial.print(now, DEC);
-    Serial.print(" ");
-    Serial.print(total_sleep_time, DEC);
-    Serial.print(" ");
-    Serial.print(voltage_reading, DEC);
-    Serial.print(" ");
-    Serial.print(analogRead(SOLAR_PIN), DEC);
-    Serial.print(" ");
-    Serial.print(last_state, DEC);
-    Serial.print(" ");
-    Serial.print(voltage_threshold_.smoothed_value());
-    Serial.println();
-
-    num_rx_since_status = 0;
-    num_bad_rx = 0;
+    ReportStatus(now);
   }
+}
+
+void ReportStatus(unsigned long now) {
+  // DPrintln("\n---Status---");
+#ifdef MEMORY_DEBUG
+  memrep();
+#endif
+  //DPrintUL("num_rx", num_rx_since_status);
+  
+  // TODO(madadam): Maybe the voltage reading should be in its own function.
+  // But currently we want it at the same interval as status updates,
+  // so it's fine here.
+  int voltage_reading = analogRead(VOLTAGE_READ_PIN);
+  float scaled_voltage = ScaleVoltage(voltage_reading);
+  voltage_threshold_.Update(scaled_voltage, now);
+  /*
+  DPrintInt(" pc3", voltage_reading);
+  // DPrintFloat(" v", voltage_threshold_.smoothed_value());
+  DPrintByte("", voltage_threshold_.state());
+  
+  DPrintln();
+  if (at_attention) {
+    DPrintln("At ATTN");
+  }
+  */
+
+  int solar_reading = analogRead(SOLAR_PIN);
+
+  // Logging.
+  Serial.print(now, DEC);
+  Serial.print(" ");
+  Serial.print(total_sleep_time, DEC);
+  Serial.print(" ");
+  Serial.print(voltage_reading, DEC);
+  Serial.print(" ");
+  Serial.print(analogRead(SOLAR_PIN), DEC);
+  Serial.print(" ");
+  Serial.print(last_state, DEC);
+  Serial.print(" ");
+  Serial.print(voltage_threshold_.smoothed_value());
+  Serial.println();
+
+  num_rx_since_status = 0;
+  num_bad_rx = 0;
 }
 
 void MaybeRunLedControl(unsigned long now) {

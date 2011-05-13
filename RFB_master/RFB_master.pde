@@ -92,8 +92,6 @@ byte day_cycle_state_ = ACTIVE;
 #define VOLTAGE_HISTERESIS_FRACTION .05
 #define VOLTAGE_WINDOW_LEN 10
 
-SmoothedThreshold voltage_threshold_;
-
 // MESSAGE_MODE controls how we get messages before sending them out.
 // Modes:
 // 0: Listen for raw message bytes on the incoming serial port, and transmit
@@ -206,8 +204,6 @@ void setup(){
   }
   setUartBaudRate();
 
-  InitVoltageThresholder();
-
   rfBeeInit();
   InitSleepControl();
   Serial.println(versionblurb);
@@ -216,20 +212,6 @@ void setup(){
   RunStartupSequence();
 
   InitActiveCycle();
-}
-
-void InitVoltageThresholder() {
-  const int kNumReadings = 10;
-  int reading_sum = 0;
-  // Take the average of a few readings to smooth noise.
-  for (int i = 0; i < kNumReadings; ++i) {
-    reading_sum += analogRead(VOLTAGE_READ_PIN);
-    delay(1);
-  }
-  voltage_threshold_.InitRelativeToInitialValue(reading_sum / kNumReadings,
-                                                VOLTAGE_THRESHOLD_FRACTION,
-                                                VOLTAGE_HISTERESIS_FRACTION,
-                                                VOLTAGE_WINDOW_LEN);
 }
 
 void InitActiveCycle() {
@@ -436,14 +418,6 @@ void MaybeReportStatus(unsigned long now) {
     int solar_reading;
     solar_reading = analogRead(SOLAR_PIN);
     DPrintInt(" solar", solar_reading);
-
-    int voltage_reading;
-    voltage_reading = analogRead(VOLTAGE_READ_PIN);
-    if (voltage_threshold_.Update(voltage_reading)) {
-      DPrint(" TRANSITION ");
-    }
-    DPrintInt(" voltage", voltage_reading);
-    DPrintByte(" vstate", voltage_threshold_.state());
 
     DPrintInt(" state", day_cycle_state_);
     Serial.println("");

@@ -24,6 +24,7 @@ def ReadLog(filename, num_fields_expected):
       fields = clean_line.split()
       if len(fields) == num_fields_expected:
         data.append(tuple([float(f) for f in fields]))
+  print len(data)
   fp.close()
   D = np.array(data)
   return D
@@ -61,7 +62,7 @@ if len(sys.argv) > 1:
 else:
   print 'Reading from stdin...'
   infile = sys.stdin
-D = ReadLog(infile, 5)
+D = ReadLog(infile, 6)
 print D.shape
 
 r1 = 320
@@ -70,7 +71,9 @@ fudge_factor = 1.22  # Why isn't voltage divider math working?
 voltage_factor = fudge_factor * 1.05 / (1023.0 * (r1/float(r1+r2)))
 inv_factor = 1.0/voltage_factor;
 
-USE_RAW_SCALING = False
+USE_RAW_SCALING = True
+VOLTAGE_LOG_INDEX = 5  # 2 for raw voltage, 5 for converted.
+PLOT_SMOOTHED_VOLTAGE = False
 if USE_RAW_SCALING:
   voltage_factor = 1.0
 else:
@@ -80,24 +83,29 @@ else:
 scaled_time = D[:,0]/float(1000*60*60)
 
 ax1 = plt.subplot(111)
-p1, = plt.plot(scaled_time, D[:,2] * voltage_factor, label='volt')
+plot_raw_voltage = False
+p1, = plt.plot(scaled_time,
+               D[:,VOLTAGE_LOG_INDEX] * voltage_factor, label='volt')
 
 # twinx shares the x but allows independent y.
 ax2 = ax1.twinx()
 p2, = ax2.plot(scaled_time, D[:,3], 'r', label='solar')
 
-smoother = SmoothedThreshold(1000 * 60 * 30)  # 30 minutes
-smoothed_raw_voltage = np.array([smoother.Update(d[2], d[0]) for d in D])
+plots = [p1, p2]
 
-p1b, = ax1.plot(scaled_time, smoothed_raw_voltage * voltage_factor,
-                'g.', label='smoothed')
+if PLOT_SMOOTHED_VOLTAGE:
+  smoother = SmoothedThreshold(1000 * 60 * 30)  # 30 minutes
+  smoothed_raw_voltage = np.array([smoother.Update(d[2], d[0]) for d in D])
+
+  p1b, = ax1.plot(scaled_time, smoothed_raw_voltage * voltage_factor,
+                  'g.', label='smoothed')
+  plots.append(p1b)
 
 if len(sys.argv) > 2:
   vcc_data = ReadLog(sys.argv[2], 2)
   p3, = ax1.plot(vcc_data[:,0]/float(1000*60*60), vcc_data[:,1] * inv_factor,
                  'g', label='vcc')
 
-plots = [p1, p1b, p2]
 plt.legend(plots, [p.get_label() for p in plots])
 # FIXME: This disappears:
 plt.xlabel('hours')

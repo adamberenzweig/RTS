@@ -1,5 +1,10 @@
 #!/usr/bin/python
 # Author: Adam Berenzweig (adam.b@gmail.com)
+#
+# A tool to drive the master by sending it commands over the USB port.
+# With the master hooked up to a laptop via the USB programmer, run this
+# to send commands from a text file.  Useful for testing different patterns
+# without having to reprogram the master every time.
 
 # To install serial: sudo easy_install pyserial
 import serial

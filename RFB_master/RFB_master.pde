@@ -98,7 +98,7 @@ byte day_cycle_state_ = ACTIVE;
 //    once 32 bytes have been received.
 // 1: Cycle through the test_messages.
 // 2: Read messages from the serial port.
-#define MESSAGE_MODE 1
+#define MESSAGE_MODE 2
 
 // FIXME:  Getting short on SRAM again because of all the message
 // strings.  Put them in progmem.
@@ -250,7 +250,10 @@ void CheckForDayCycleTransition(unsigned long now) {
 void loop(){
   unsigned long now = millis();
 
-  CheckForDayCycleTransition(now);
+  // Only use the day/night cycles in test_messages mode.
+  if (MESSAGE_MODE == 1) {
+    CheckForDayCycleTransition(now);
+  }
 
   if (MESSAGE_MODE == 0) {
     readSerialData();
@@ -357,7 +360,10 @@ void MaybeChangeMessage(unsigned long now) {
 
 void TryReadMessageFromSerial() {
   RtsMessage message(rtsMessageData);
-  ReadRtsMessageFromSerial(serialData, BUFFLEN, &message);
+  if (ReadRtsMessageFromSerial(serialData, BUFFLEN, &message)) {
+    DPrintInt("Read cmd", message.command());
+    DPrintln();
+  }
 }
 
 void MaybeSendMessage(unsigned long now, int period_ms) {

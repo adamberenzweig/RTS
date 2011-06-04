@@ -18,7 +18,7 @@ Date: September 16, 2010
 #include <Twinkler.h>
 
 // Puck-Specific Configuration
-#define RTS_ID 11           // The Unique ID of this RFBee.
+#define RTS_ID 10           // The Unique ID of this RFBee.
 
 // Voltage tuning factor.
 // A constant used to compute the puck's voltage from the raw values read
@@ -43,7 +43,7 @@ Date: September 16, 2010
 // found we needed an extra fudge factor to get the pucks to report the correct
 // voltage (I never got to the bottom of why).  So the easiest thing is to just
 // incorporate everything into one number determined empirically.
-#define V_TUNING_FACTOR 4.04
+#define V_TUNING_FACTOR 4.08
 
 /***************** Early Definitions ******************/
 static char versionblurb[20] = "v.0.6 - SLAVE"; 

@@ -1,17 +1,21 @@
 #!/usr/bin/python
 # Author: Adam Berenzweig (adam.b@gmail.com)
 
-# To install: sudo easy_install pyserial
+# To install serial: sudo easy_install pyserial
 import serial
 import sys
+import time
 
 USAGE = """
-fake-master.py [--loop] <command_file>
+fake-master.py [options] <command_file>
+
+Options:
+--loop: If true, loop through the file forever.
+--serial_device: Serial device to communicate to Arduino,
+                 e.g. /dev/tty.usbserial-<id>
 """
 
-FLAGS_loop = false
-
-filename = None
+FLAGS_loop = False
 
 # TODO(madadam): Auto-detect serial port?
 # Serial device path, e.g. '/dev/tty.usbserial'
@@ -19,14 +23,18 @@ FLAGS_serial_device = None
 
 FLAGS_baud_rate = 9600
 
+filename = None
+
 # Process commandline args.
 args = sys.argv[1:]
 while args:
   arg = args.pop(0)
+  if '=' in arg:
+    arg, arg_value = arg.split('=')
   if arg == '--loop':
-    FLAGS_loop = true
-  elif arg == '--serial':
-    FLAGS_serial_device = args.pop(0)
+    FLAGS_loop = True
+  elif arg == '--serial_device':
+    FLAGS_serial_device = arg_value
   else:
     filename = arg
 
@@ -35,16 +43,20 @@ if not filename:
   sys.exit(0)
 
 infile = open(filename, 'r')
-commands = infile.readlines()
+command_lines = infile.readlines();
+infile.close()
 
 ser = serial.Serial(FLAGS_serial_device, FLAGS_baud_rate)
 
-done = false
-while done:
-  for command in commands:
+done = False
+while not done:
+  for line in command_lines:
+    duration_ms, command = line.strip().split(None, 1)
+    duration_sec = int(duration_ms) / 1000.0
     print command
     ser.write(command)
     # newline required?
     ser.write('\n')
-  done = !FLAGS_loop
+    time.sleep(duration_sec)
+  done = not FLAGS_loop
  

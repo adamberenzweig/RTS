@@ -51,17 +51,21 @@ infile = open(filename, 'r')
 command_lines = infile.readlines();
 infile.close()
 
-ser = serial.Serial(FLAGS_serial_device, FLAGS_baud_rate)
+serial_port = serial.Serial(FLAGS_serial_device, FLAGS_baud_rate)
 
 done = False
 while not done:
   for line in command_lines:
-    duration_ms, command = line.strip().split(None, 1)
+    line = line.strip()
+    # Skip blank lines and comments.
+    if not line or line.startswith('#'):
+      continue
+    duration_ms, command = line.split(None, 1)
     duration_sec = int(duration_ms) / 1000.0
     print command
-    ser.write(command)
+    serial_port.write(command)
     # newline required?
-    ser.write('\n')
+    serial_port.write('\n')
     time.sleep(duration_sec)
   done = not FLAGS_loop
  

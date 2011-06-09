@@ -98,7 +98,7 @@ byte day_cycle_state_ = ACTIVE;
 //    once 32 bytes have been received.
 // 1: Cycle through the test_messages.
 // 2: Read messages from the serial port.
-#define MESSAGE_MODE 2
+#define MESSAGE_MODE 1
 
 // FIXME:  Getting short on SRAM again because of all the message
 // strings.  Put them in progmem.
@@ -115,7 +115,7 @@ struct TestMessage {
 TestMessage test_messages[] = {
   { 240000, "ALL_TWK 215 60 0"},  // Sparse blue twinkle.
   { 240000, "ALL_TWK 215 60 1"},  // Sparse white twinkle.
-  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
+//  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
   { 240000, "ALL_TWK 245 10 1"},  // fast white twinkle
   // "ALL_CST 100 0 100", // All constellation white w/ medium fade-in
 /*  

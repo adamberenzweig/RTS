@@ -93,12 +93,18 @@ byte day_cycle_state_ = ACTIVE;
 #define VOLTAGE_WINDOW_LEN 10
 
 // MESSAGE_MODE controls how we get messages before sending them out.
-// Modes:
-// 0: Listen for raw message bytes on the incoming serial port, and transmit
-//    once 32 bytes have been received.
-// 1: Cycle through the test_messages.
-// 2: Read messages from the serial port.
-#define MESSAGE_MODE 1
+enum MESSAGE_MODES {
+  // Listen for raw message bytes on the incoming serial port, and transmit
+  // once 32 bytes have been received.
+  RAW_SERIAL,
+
+  // Cycle through the test_messages.
+  TEST_CYCLE,
+
+  // Read messages from the serial port.
+  MESSAGE_SERIAL,
+};
+#define MESSAGE_MODE TEST_CYCLE
 
 // FIXME:  Getting short on SRAM again because of all the message
 // strings.  Put them in progmem.
@@ -227,10 +233,9 @@ void CheckForDayCycleTransition(unsigned long now) {
       (SolarTransition(now, &solar_state_) && solar_state_ == NIGHT)) {
     // Sun just set.  Wake up, little vampire.
     day_cycle_state_ = ACTIVE;
-    // Reset Day-cycle clock.
-    last_cycle_transition = now;
     InitActiveCycle();
   }
+  // FIXME should these be else-ifs?  would we ever transition twice?
   if (day_cycle_state_ == ACTIVE &&
       IsTimerExpired(now, &last_cycle_transition, ACTIVE_DURATION_MS)) {
     day_cycle_state_ = SLEEPING;
@@ -251,17 +256,17 @@ void loop(){
   unsigned long now = millis();
 
   // Only use the day/night cycles in test_messages mode.
-  if (MESSAGE_MODE == 1) {
+  if (MESSAGE_MODE == TEST_CYCLE) {
     CheckForDayCycleTransition(now);
   }
 
-  if (MESSAGE_MODE == 0) {
+  if (MESSAGE_MODE == RAW_SERIAL) {
     readSerialData();
   } else {
     if (day_cycle_state_ == ACTIVE) {
-      if (MESSAGE_MODE == 1) {
+      if (MESSAGE_MODE == TEST_CYCLE) {
         MaybeChangeMessage(now);
-      } else if (MESSAGE_MODE == 2) {
+      } else if (MESSAGE_MODE == MESSAGE_SERIAL) {
         TryReadMessageFromSerial();
       }
     }

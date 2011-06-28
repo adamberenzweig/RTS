@@ -484,8 +484,6 @@ void ReportStatus(unsigned long now) {
   }
   */
 
-  int solar_reading = analogRead(SOLAR_PIN);
-
   // Logging.
   Serial.print(now, DEC);
   Serial.print(" ");

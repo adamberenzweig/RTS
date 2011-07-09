@@ -50,7 +50,7 @@ char versionblurb[20] = "v.1.0 - MASTER";
 // FIXME not needed for TX?
 #define GDO0 2 // used for polling the RF received data
 
-#define STATUS_INTERVAL_MS 1000UL
+#define STATUS_INTERVAL_MS 2000UL
 unsigned long last_status_report = 0;
 // How many messages we've sent.
 unsigned long tx_counter = 0;
@@ -225,6 +225,19 @@ void InitActiveCycle() {
   last_message_time = millis();
   SetTestMessage(current_message);
 }
+
+// FIXME: bug probably here.  either:
+// 1) since we don't use smoothedthreshold, noise in the solar reading leads to
+// accidental transition from night->day.
+// 2) standby timer expires without solar transition.  we go active, but
+// solar_state_ is still DAY.  then what happens?
+//  ACTIVE, DAY
+//  ACTIVE, NIGHT (call InitActiveCycle() again, resets but harmless.)
+//  SLEEPING, NIGHT
+//  SLEEPING, DAY
+//  STANDBY, DAY
+//  ACTIVE, NIGHT (solar triggered)
+// 3) power cycled during the day.  solar_state starts as NIGHT. what happens?
 
 void CheckForDayCycleTransition(unsigned long now) {
   if ((STANDBY_DURATION_MS > 0 &&
@@ -405,8 +418,7 @@ void SendNMessages(int n) {
 bool SolarTransition(unsigned long now, byte* solar_state) {
   if (SOLAR_SLEEP_CHECK_INTERVAL_MS > 0 &&
       IsTimerExpired(now, &last_solar_check, SOLAR_SLEEP_CHECK_INTERVAL_MS)) {
-    int solar_reading;
-    solar_reading = analogRead(SOLAR_PIN);
+    int solar_reading = analogRead(SOLAR_PIN);
     if (solar_reading < SOLAR_THRESHOLD_LOW && *solar_state == DAY) {
       *solar_state = NIGHT;
       return true;
@@ -421,17 +433,17 @@ bool SolarTransition(unsigned long now, byte* solar_state) {
 
 void MaybeReportStatus(unsigned long now) {
   if (IsTimerExpired(now, &last_status_report, STATUS_INTERVAL_MS)) {
-    Serial.println("\n---Status---");
-    DPrintUL("tx_counter", tx_counter);
     //memrep();
+    Serial.print(now, DEC);
+    Serial.print(" ");
 
-    // Solar voltage measurement.
-    int solar_reading;
-    solar_reading = analogRead(SOLAR_PIN);
-    DPrintInt(" solar", solar_reading);
+    Serial.print(analogRead(SOLAR_PIN), DEC);
+    Serial.print(" ");
+    Serial.print(solar_state_, DEC);
+    Serial.print(" ");
+    Serial.print(day_cycle_state_, DEC);
 
-    DPrintInt(" state", day_cycle_state_);
-    Serial.println("");
+    Serial.println();
   }
 }
 

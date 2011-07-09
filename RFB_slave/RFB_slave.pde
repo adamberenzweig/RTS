@@ -6,6 +6,14 @@ Date: September 16, 2010
 ----------------------
 **************************************/
 
+// FIXME
+// Stability improvement ideas.
+// - Waking up from radio sleep, increase delay.  what happens if try to read from
+//   the radio before it's fully woken?
+// - Rip out all the attention/at-ease code.
+// - Infinite loop parsing bad data from the radio? (waitAndReceiveRFBeeData, or
+//   RtsMessage if it gets that far, can it?)
+
 //#define DEBUG
 
 #ifdef MEMORY_DEBUG
@@ -110,12 +118,13 @@ unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 #define LOW_VOLTAGE_SLEEP_TIME_SEC 3600  // One hour
 SmoothedThreshold voltage_threshold_;
 
+// TODO(madadam): use underscores for all globals.
+
 // Status/Debug
 #define STATUS_INTERVAL_MS 2000UL
 const int debug_level = 0;
-unsigned int num_rx_since_status = 0;
 unsigned int num_bad_rx = 0;
-byte last_state = 0;  // Only for status reporting.
+byte last_state_ = 0;  // Only for status reporting.
 unsigned long total_sleep_time = 0;
 
 // Timers:
@@ -137,9 +146,9 @@ unsigned long last_attention_time = 0;
 // State variables:
 
 // See the comment about kRadioSleepTimeMs.
-bool is_radio_sleeping = false;
+bool is_radio_sleeping_ = false;
 // When at_attention, never sleep the radio.
-bool at_attention = false;
+bool at_attention_ = false;
 byte current_msg_checksum = 0;
 // The currently active twinkler, or NULL if not twinkling.
 Twinkler* twinkler = NULL;
@@ -152,6 +161,8 @@ unsigned int sleep_on_next_loop_for_sec = 0;
 // Have a true factory method that dynamically creates the object of the right
 // type.  Instead, keep an object of each type around, and re-initialize it
 // in the factory method.
+// TODO(madadam): Would duplicating the code and not using inheritence make the
+// code size bigger or smaller?  There's only two subclasses...
 RandomTwinkler random_twinkler;
 ConstellationTwinkler constellation_twinkler;
 
@@ -278,12 +289,12 @@ void loop(){
 
 bool HandleSpecialCommand(byte command, const RtsMessage& message) {
   if (command == ATTENTION) {
-    at_attention = true;
+    at_attention_ = true;
     last_attention_time = millis();
     return true;
   }
   if (command == AT_EASE) {
-    at_attention = false;
+    at_attention_ = false;
     return true;
   }
   if (command == SLEEP_NOW) {
@@ -307,24 +318,24 @@ void MaybeRxMessage(unsigned long now) {
   byte new_state = IGNORE;
 
   // Check if we need to time out of attention mode.
-  if (at_attention &&
+  if (at_attention_ &&
       IsTimerExpired(now, &last_attention_time, ATTENTION_TIMEOUT_MS)) {
-    at_attention = 0;
+    at_attention_ = 0;
   }
 
   // Check if the radio needs to be woken up.
-  if (is_radio_sleeping &&
+  if (is_radio_sleeping_ &&
       IsTimerExpired(now, &last_radio_sleep_start, kRadioSleepTimeMs)) {
     // DPrintln("radio sleep off");
     setRFBeeModeWith(RECEIVE_MODE);
-    is_radio_sleeping = 0;
+    is_radio_sleeping_ = 0;
     // Reset the lonely-sleep timer, we can't have heard anything while
     // the radio was sleeping.
     last_rx_ms = now;
     // Give the radio some time to wake up:
     delayMicroseconds(200);
   }
-  
+
   // Decode all the packets available, to prevent RX buffer overflow.
   while ( digitalRead(GDO0) == HIGH ) {
     if (debug_level > 0) {
@@ -337,7 +348,6 @@ void MaybeRxMessage(unsigned long now) {
     bool is_good_packet = waitAndReceiveRFBeeData(rxData);
     if (is_good_packet) {
       did_rx_good_packet = 1;
-      num_rx_since_status++;
       RtsMessage message(rxData);
       if (debug_level > 0) {
         message.DebugPrint();
@@ -354,23 +364,28 @@ void MaybeRxMessage(unsigned long now) {
     }
   }
 
-  if (did_rx_good_packet && kRadioSleepTimeMs && !at_attention) {
+  if (did_rx_good_packet && kRadioSleepTimeMs && !at_attention_) {
     last_radio_sleep_start = last_rx_ms;
     setRFBeeModeWith(SLEEP_MODE);
-    is_radio_sleeping = 1;
+    is_radio_sleeping_ = 1;
     // DPrintln("radio sleep on");
   }
   
   // Only act on the most recent packet, and only if it differs
   // from the current state (detected by a change in the checksum).
   if (new_state != IGNORE) {
-    last_state  = new_state;
+    // TODO(madadam): Can I avoid parsing this twice?
     RtsMessage message(rxData);
     byte checksum = message.checksum();
     // Note that we're using a braindead checksum and it's only one byte.
     // We might get collisions, in which case the puck will ignore the
     // new message.
+    // FIXME: Is this a possible source of getting stuck?
+    // Although wouldn't it be the same for all pucks, since the message is
+    // broadcast?  Also, it should recover on the next message.
+    // Try simulating a collision, what's the behavior?
     if (checksum != current_msg_checksum) {
+      last_state_  = new_state;
       twinkler = TwinklerFactory(new_state, message);
       if (twinkler && debug_level > 0) {
         DPrintln(twinkler->Name());
@@ -465,7 +480,6 @@ void ReportStatus(unsigned long now) {
 #ifdef MEMORY_DEBUG
   memrep();
 #endif
-  //DPrintUL("num_rx", num_rx_since_status);
   
   // TODO(madadam): Maybe the voltage reading should be in its own function.
   // But currently we want it at the same interval as status updates,
@@ -479,7 +493,7 @@ void ReportStatus(unsigned long now) {
   DPrintByte("", voltage_threshold_.state());
   
   DPrintln();
-  if (at_attention) {
+  if (at_attention_) {
     DPrintln("At ATTN");
   }
   */
@@ -493,12 +507,11 @@ void ReportStatus(unsigned long now) {
   Serial.print(" ");
   Serial.print(analogRead(SOLAR_PIN), DEC);
   Serial.print(" ");
-  Serial.print(last_state, DEC);
+  Serial.print(last_state_, DEC);
   Serial.print(" ");
   Serial.print(voltage_threshold_.smoothed_value());
   Serial.println();
 
-  num_rx_since_status = 0;
   num_bad_rx = 0;
 }
 
@@ -551,7 +564,7 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   // RunStartupSequence();
   
   setRFBeeModeWith(RECEIVE_MODE);
-  is_radio_sleeping = 0;
+  is_radio_sleeping_ = 0;
   // Reset the sleep-if-lonely clock.
   last_rx_ms = millis();
 
@@ -577,7 +590,7 @@ void MaybeSleep(unsigned long now) {
 
   // Lonely Timer - for when the Rx no longer hears from the Tx, it will go to
   // sleep.
-  if (!is_radio_sleeping &&
+  if (!is_radio_sleeping_ &&
       IsTimerExpired(now, &last_rx_ms, LONELY_TIMEOUT_MS)) {
     DPrintln("\nLonely");
     FullSleepFor(next_lonely_sleep_interval);

@@ -50,7 +50,7 @@ char versionblurb[20] = "v.1.0 - MASTER";
 // FIXME not needed for TX?
 #define GDO0 2 // used for polling the RF received data
 
-#define STATUS_INTERVAL_MS 2000UL
+#define STATUS_INTERVAL_MS 10000UL
 unsigned long last_status_report = 0;
 // How many messages we've sent.
 unsigned long tx_counter = 0;

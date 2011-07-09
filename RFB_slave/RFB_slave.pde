@@ -63,7 +63,6 @@ static char versionblurb[20] = "v.0.6 - SLAVE";
 /***************** Includes ******************/
 #include "debug.h"
 #include "globals.h"
-#include "Config.h"
 #include "CCx.h"
 #include "rfBeeSerial.h"
 
@@ -86,6 +85,7 @@ int pin_number[NUM_LEDS];
 // Radio
 #define TRUSTED_SRC_ADDRESS 1
 #define MAX_PACKET_LENGTH 32
+#define ADDRESS_CHECK 0  // 0: no check, 1: check, 2: check w/ broadcast (0)
 
 // Power and Sleep
 // Go to sleep if we don't receive anything in this interval:
@@ -190,20 +190,8 @@ void setup(){
   analogReference(INTERNAL);
 
   randomSeed(analogRead(0));
-
-  //do extra initalization
-  Config.set(CONFIG_MY_ADDR,RTS_ID);        //modify the number to specify an unique address for RFBee itself 
-  setMyAddress();
-  Config.set(CONFIG_ADDR_CHECK, 0);  // 0: no check, 1: check, 2: check w/ broadcast (0)
-  setAddressCheck();
-  //==========================
-
-  if (Config.initialized() != OK) {
-    Serial.begin(9600);
-    Config.reset();
-  }
-
-  setUartBaudRate();
+  Serial.begin(9600);
+  
   delay(2);
 
   Serial.println(versionblurb);
@@ -253,10 +241,14 @@ void InitLedStates() {
   last_led_control_time = millis();
 }
 
-// TODO: move some of this to RtsRadio?
 void rfBeeInit(){
   CCx.PowerOnStartUp();
-  setCCxConfig();
+  byte config_id = 0;
+  byte config_pa_id = 0;
+  CCx.Setup(config_id);
+  CCx.Write(CCx_ADDR, RTS_ID);
+  CCx.Write(CCx_PKTCTRL1, ADDRESS_CHECK | 0x04); 
+  CCx.setPA(config_id, config_pa_id); 
   serialMode=SERIALDATAMODE;
   // GD00 is located on pin 2, which results in INT 0:
   attachInterrupt(0, ISRVreceiveData, RISING);

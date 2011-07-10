@@ -59,42 +59,53 @@ byte txFifoFree(){
 }
 
 // receive data via RF, rxData must be at least CCx_PACKT_LEN bytes long
-// TODO(madadam): Instead of CCx.Read for each non-payload byte of the packet,
-// why not read the whole thing at once with ReadBurst, and parse it later?
-// Less back-and-forth with the SPI, might be less error-prone.  Need to get the
-// first (len) byte, and also have enough room in rxData for the other header
-// bytes, and make sure the caller skips the src/dest addresses.
-// Or, the CCx datasheet says that in non-burst mode, "after the data byte, a
-// new header byte is expected, hence CSn can remain low." In other words, we
-// don't need to do Spi.SlaveSelect after each byte but could do several.
+// On success, rxData points to the entire packet including the two address
+// bytes at the beginning and the rssi and lqi bytes at the end.
 int receiveData(byte *rxData, byte *len, byte *srcAddress, byte *destAddress, byte *rssi , byte *lqi){
   DEBUGPRINT()
 
   byte stat;
+  int result;
 
   // TODO(madadam): Why isn't the status byte checked after each call, only at
   // the end?
 
   stat=CCx.Read(CCx_RXFIFO,len);
+  result = CheckStatusForOverflow(stat);
+  if (result != OK) {
+    return result;
+  }
 #ifdef DEBUG
   Serial.print("length:");
   Serial.println(*len,DEC);
 #endif
-  CCx.Read(CCx_RXFIFO,destAddress);
-  CCx.Read(CCx_RXFIFO,srcAddress);
-  *len -= 2;  // discard address bytes from payloadLen 
-  CCx.ReadBurst(CCx_RXFIFO, rxData,*len);
-  CCx.Read(CCx_RXFIFO,rssi);
+  // NOTE(madadam): Instead of CCx.Read for each non-payload byte of the packet,
+  // read the whole thing at once with ReadBurst, and parse it after.
+  // Less back-and-forth with the SPI, might be less error-prone. 
+  // +2 for RSSI and LQI.
+  stat = CCx.ReadBurst(CCx_RXFIFO, rxData, *len + 2);
+  result = CheckStatusForOverflow(stat);
+  if (result != OK) {
+    return result;
+  }
+  *destAddress = rxData[0];
+  *srcAddress = rxData[1];
+  *rssi = rxData[*len];
   *rssi=CCx.RSSIdecode(*rssi);
-  stat=CCx.Read(CCx_RXFIFO,lqi);
+  *lqi = rxData[*len + 1];
+
   // check checksum ok
   if ((*lqi & 0x80)==0){
     return NOTHING;
   }
   *lqi=*lqi & 0x7F; // strip off the CRC bit
-  
+
+  return OK;
+}
+
+int CheckStatusForOverflow(byte status) {
   // handle potential RX overflows by flushing the RF FIFO as described in section 10.1 of the CC 1100 datasheet
-  if ((stat & 0xF0) == 0x60){ //Modified by Icing. When overflows, STATE[2:0] = 110
+  if ((status & 0xF0) == 0x60){ //Modified by Icing. When overflows, STATE[2:0] = 110
      errNo=3; //Error RX overflow
      // Flush the RX buffer
      CCx.Strobe(CCx_SIDLE);
@@ -102,7 +113,7 @@ int receiveData(byte *rxData, byte *len, byte *srcAddress, byte *destAddress, by
      CCx.Strobe(CCx_SFRX);
      return ERR;
    }
-  return OK;
+   return OK;
 }
 
 void lowPowerOn(){

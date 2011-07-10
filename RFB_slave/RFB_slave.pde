@@ -300,7 +300,7 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
   return false;
 }
 
-static byte rxData[CCx_PACKT_LEN];
+static byte rxDataBuffer[CCx_PACKT_LEN];
 
 void MaybeRxMessage(unsigned long now) {
   byte did_rx_good_packet = 0;
@@ -325,6 +325,8 @@ void MaybeRxMessage(unsigned long now) {
     delayMicroseconds(200);
   }
 
+  byte* rxData;
+
   // Decode all the packets available, to prevent RX buffer overflow.
   // FIXME: Can we get stuck in this loop?  What clears the GDO0 pin?
   byte num_packets = 0;
@@ -337,7 +339,7 @@ void MaybeRxMessage(unsigned long now) {
     // We heard something, so reset the lonely sleep exponential backoff.
     next_lonely_sleep_interval = LONELY_SLEEP_SEC_MIN;
 
-    bool is_good_packet = waitAndReceiveRFBeeData(rxData);
+    bool is_good_packet = waitAndReceiveRFBeeData(&rxData);
     if (is_good_packet) {
       did_rx_good_packet = 1;
       RtsMessage message(rxData);
@@ -398,7 +400,7 @@ bool ValidatePacket(byte* rxData, byte len,
   return 1;
 }
 
-byte waitAndReceiveRFBeeData(byte* rxData) {
+byte waitAndReceiveRFBeeData(byte** rxData) {
   byte len;
   byte srcAddress;
   byte destAddress;
@@ -407,7 +409,12 @@ byte waitAndReceiveRFBeeData(byte* rxData) {
   int result;
   byte good_packet = 1;
 
-  result = receiveData(rxData, &len, &srcAddress, &destAddress, &rssi , &lqi);
+  result =
+      receiveData(rxDataBuffer, &len, &srcAddress, &destAddress, &rssi , &lqi);
+  // Skip over the source and dest addresses at the beginning of the packet,
+  // and adjust len accordingly.
+  *rxData = rxDataBuffer + 2;
+  len -= 2;
   
   if (result == ERR) {
     writeSerialError();
@@ -417,7 +424,7 @@ byte waitAndReceiveRFBeeData(byte* rxData) {
   }
 
   if (good_packet) {
-    if (!ValidatePacket(rxData, len, srcAddress, destAddress, rssi)) {
+    if (!ValidatePacket(*rxData, len, srcAddress, destAddress, rssi)) {
       num_bad_rx++;
       DPrintln("Rejected packet.");
       good_packet = 0;
@@ -431,7 +438,7 @@ byte waitAndReceiveRFBeeData(byte* rxData) {
   }
 
   if (!good_packet) {
-    DebugPrintPacket(result, rxData, len, srcAddress, destAddress, rssi, lqi);
+    DebugPrintPacket(result, *rxData, len, srcAddress, destAddress, rssi, lqi);
   }
   
   return good_packet;

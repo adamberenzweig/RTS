@@ -67,9 +67,6 @@ int receiveData(byte *rxData, byte *len, byte *srcAddress, byte *destAddress, by
   byte stat;
   int result;
 
-  // TODO(madadam): Why isn't the status byte checked after each call, only at
-  // the end?
-
   stat=CCx.Read(CCx_RXFIFO,len);
   result = CheckStatusForOverflow(stat);
   if (result != OK) {

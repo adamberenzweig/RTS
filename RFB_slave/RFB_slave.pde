@@ -107,8 +107,7 @@ unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_WINDOW_SEC 30
-#define VOLTAGE_THRESHOLD_LOW 0  // FIXME debugging
-//#define VOLTAGE_THRESHOLD_LOW 3.55
+#define VOLTAGE_THRESHOLD_LOW 3.55
 #define VOLTAGE_THRESHOLD_HIGH 3.66
 
 #define VOLTAGE_WINDOW_LEN 10
@@ -328,10 +327,11 @@ void MaybeRxMessage(unsigned long now) {
   byte* rxData;
 
   // Decode all the packets available, to prevent RX buffer overflow.
-  // FIXME: Can we get stuck in this loop?  What clears the GDO0 pin?
-  byte num_packets = 0;
-  const int kMaxPackets = 100;
-  while (digitalRead(GDO0) == HIGH && num_packets < kMaxPackets) {
+  // Don't loop more than packet_limit times, in case GDO0 doesn't get cleared
+  // for some reason.
+  byte loop_limit = 100;
+  while (digitalRead(GDO0) == HIGH && loop_limit) {
+    --loop_limit;
     if (debug_level > 0) {
       DPrint("Rx => ");
     }
@@ -364,7 +364,7 @@ void MaybeRxMessage(unsigned long now) {
     is_radio_sleeping_ = 1;
     // DPrintln("radio sleep on");
   }
-  
+
   // Only act on the most recent packet, and only if it differs
   // from the current state (detected by a change in the checksum).
   if (new_state != IGNORE) {

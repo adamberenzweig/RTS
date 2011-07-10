@@ -107,8 +107,7 @@ unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_WINDOW_SEC 30
-#define VOLTAGE_THRESHOLD_LOW 0  // FIXME debugging
-//#define VOLTAGE_THRESHOLD_LOW 3.55
+#define VOLTAGE_THRESHOLD_LOW 3.55
 #define VOLTAGE_THRESHOLD_HIGH 3.66
 
 #define VOLTAGE_WINDOW_LEN 10

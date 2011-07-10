@@ -60,7 +60,9 @@ byte SPI::transfer(byte value)
 {
   byte x;
   SPDR = value;
-  while (!(SPSR & (1<<SPIF))) ;
+  // poll_limit is a safety check to make sure we don't get stuck here.
+  int poll_limit = 1000;
+  while (!(SPSR & (1<<SPIF)) && poll_limit) { --poll_limit; }
   x  = SPDR;
   return x;
 }

@@ -56,7 +56,6 @@ Date: September 16, 2010
 /***************** Early Definitions ******************/
 static char versionblurb[20] = "v.0.6 - SLAVE"; 
 #define FIRMWAREVERSION 11 // 1.1, version number needs to fit in byte (0~255) to be able to store it into config
-//#define FACTORY_SELFTEST
 //#define INTERRUPT_RECEIVE
 /****************************************************/
 
@@ -66,9 +65,6 @@ static char versionblurb[20] = "v.0.6 - SLAVE";
 #include "CCx.h"
 #include "rfBeeSerial.h"
 
-#ifdef FACTORY_SELFTEST
-#include "TestIO.h"	// factory selftest
-#endif
 /*********************************************/
 
 
@@ -111,7 +107,8 @@ unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_WINDOW_SEC 30
-#define VOLTAGE_THRESHOLD_LOW 3.55
+#define VOLTAGE_THRESHOLD_LOW 0  // FIXME debugging
+//#define VOLTAGE_THRESHOLD_LOW 3.55
 #define VOLTAGE_THRESHOLD_HIGH 3.66
 
 #define VOLTAGE_WINDOW_LEN 10
@@ -329,7 +326,10 @@ void MaybeRxMessage(unsigned long now) {
   }
 
   // Decode all the packets available, to prevent RX buffer overflow.
-  while ( digitalRead(GDO0) == HIGH ) {
+  // FIXME: Can we get stuck in this loop?  What clears the GDO0 pin?
+  byte num_packets = 0;
+  const int kMaxPackets = 100;
+  while (digitalRead(GDO0) == HIGH && num_packets < kMaxPackets) {
     if (debug_level > 0) {
       DPrint("Rx => ");
     }
@@ -398,8 +398,7 @@ bool ValidatePacket(byte* rxData, byte len,
   return 1;
 }
 
-byte waitAndReceiveRFBeeData(byte* rxData)
-{
+byte waitAndReceiveRFBeeData(byte* rxData) {
   byte len;
   byte srcAddress;
   byte destAddress;

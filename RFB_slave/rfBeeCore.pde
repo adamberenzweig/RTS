@@ -59,10 +59,21 @@ byte txFifoFree(){
 }
 
 // receive data via RF, rxData must be at least CCx_PACKT_LEN bytes long
+// TODO(madadam): Instead of CCx.Read for each non-payload byte of the packet,
+// why not read the whole thing at once with ReadBurst, and parse it later?
+// Less back-and-forth with the SPI, might be less error-prone.  Need to get the
+// first (len) byte, and also have enough room in rxData for the other header
+// bytes, and make sure the caller skips the src/dest addresses.
+// Or, the CCx datasheet says that in non-burst mode, "after the data byte, a
+// new header byte is expected, hence CSn can remain low." In other words, we
+// don't need to do Spi.SlaveSelect after each byte but could do several.
 int receiveData(byte *rxData, byte *len, byte *srcAddress, byte *destAddress, byte *rssi , byte *lqi){
   DEBUGPRINT()
 
   byte stat;
+
+  // TODO(madadam): Why isn't the status byte checked after each call, only at
+  // the end?
 
   stat=CCx.Read(CCx_RXFIFO,len);
 #ifdef DEBUG
@@ -109,7 +120,3 @@ void lowPowerOn(){
   sleepNow(SLEEP_MODE_IDLE);
   //CCx.Strobe(CCx_SIDLE);
 }
-
-
-  
-

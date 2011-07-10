@@ -65,15 +65,24 @@ void CCX::PowerOnStartUp()
 byte CCX::Read(byte addr,byte* data)
 {
   DEBUGPRINT() 
-  byte result;
+  byte result = 0;
   
   Spi.slaveSelect(LOW);
-  // wait for MISO to go low
-  while(digitalRead(MISO_PIN));
-  
-  result=Spi.transfer(addr | 0x80);
-  *data=Spi.transfer(0);
 
+  // wait for MISO to go low, with poll limit to prevent getting stuck.
+  int poll_limit = 1000;
+  while (digitalRead(MISO_PIN) && poll_limit) { --poll_limit; }
+
+  if (poll_limit) {
+    result=Spi.transfer(addr | 0x80);
+    *data=Spi.transfer(0);
+  }
+  // TODO(madadam): Return an error code when we time out.  Right now I'm
+  // returning 0, which probably is distinct from any valid status byte, so
+  // maybe it's safe to check that.
+
+  // If we timed out and MISO_PIN is still high, is it safe to set SPI slave
+  // select back to HIGH below? Hope so.
   Spi.slaveSelect(HIGH);
   return result;
 }
@@ -81,18 +90,22 @@ byte CCX::Read(byte addr,byte* data)
 byte CCX::ReadBurst(byte addr, byte* dataPtr, byte size)
 {
   DEBUGPRINT() 
-  byte result;
+  byte result = 0;
   
   Spi.slaveSelect(LOW);
-  // wait for MISO to go low
-  while(digitalRead(MISO_PIN));
-  
-  result=Spi.transfer(addr | 0xc0);
 
-  while(size)
-  {
-    *dataPtr++ = Spi.transfer(0);
-    size--;
+  // wait for MISO to go low, with poll limit to prevent getting stuck.
+  int poll_limit = 1000;
+  while (digitalRead(MISO_PIN) && poll_limit) { --poll_limit; }
+  
+  if (poll_limit) {
+    result=Spi.transfer(addr | 0xc0);
+
+    while(size)
+    {
+      *dataPtr++ = Spi.transfer(0);
+      size--;
+    }
   }
   
   Spi.slaveSelect(HIGH);

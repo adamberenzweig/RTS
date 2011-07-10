@@ -5,3 +5,4 @@
 #define ERR -1 
 #define NOTHING 1
 #define MODIFIED 2
+#define TIMEOUT 3

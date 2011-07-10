@@ -118,10 +118,14 @@ struct TestMessage {
 
 // Messages to cycle through in test mode 1.
 TestMessage test_messages[] = {
-  { 240000, "ALL_TWK 215 60 0"},  // Sparse blue twinkle.
-  { 240000, "ALL_TWK 215 60 1"},  // Sparse white twinkle.
+//  { 240000, "ALL_TWK 215 60 0"},  // Sparse blue twinkle.
+//  { 240000, "ALL_TWK 215 60 1"},  // Sparse white twinkle.
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
-  { 240000, "ALL_TWK 245 10 1"},  // fast white twinkle
+//  { 240000, "ALL_TWK 245 10 1"},  // fast white twinkle
+
+  { 10000, "ALL_TWK 245 10 1"},  // fast white twinkle
+  { 1000, "STATUS 13"},  // Tell Puck 13 to report status.
+
   // "ALL_CST 100 0 100", // All constellation white w/ medium fade-in
 /*  
   "ALL_TWK 255 255 1",         // fast white

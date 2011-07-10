@@ -105,11 +105,10 @@ byte RtsMessage::getMyState(byte my_id) const {
   byte message_for_me = 0;
 
   // Decode the id list if necessary.
-  // Could do if command > ALL_TWINKLE, but that's dangerous, the enum could
-  // change.
   if (command == SELECT_OFF ||
       command == SELECT_CONSTELLATION ||
-      command == SELECT_TWINKLE) {
+      command == SELECT_TWINKLE ||
+      command == SELECT_STATUS) {
     // Skip the command and param bytes.
     for (int i = RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES;
          i < RTS_MESSAGE_SIZE; ++i) {
@@ -152,6 +151,9 @@ byte RtsMessage::getMyState(byte my_id) const {
       break;
     case ALL_ATTENTION:
       state = ATTENTION;
+      break;
+    case SELECT_STATUS:
+      state = message_for_me ? REPORT_STATUS : IGNORE;
       break;
     default:
       state = IGNORE;

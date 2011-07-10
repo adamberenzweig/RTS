@@ -107,7 +107,8 @@ unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_WINDOW_SEC 30
-#define VOLTAGE_THRESHOLD_LOW 3.55
+#define VOLTAGE_THRESHOLD_LOW 0  // FIXME debug
+//#define VOLTAGE_THRESHOLD_LOW 3.55
 #define VOLTAGE_THRESHOLD_HIGH 3.66
 
 #define VOLTAGE_WINDOW_LEN 10
@@ -150,6 +151,9 @@ byte current_msg_checksum = 0;
 Twinkler* twinkler = NULL;
 // For obeying SLEEP_NOW commands.
 unsigned int sleep_on_next_loop_for_sec = 0;
+// Set in response to a REPORT_STATUS message.  When set, ReportStatusMessage
+// transmits a status packet in addition to the usual serial logging.
+byte transmit_next_status_message_ = false;
 
 /*********************************************/
 
@@ -295,6 +299,10 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
     sleep_on_next_loop_for_sec = sleep_time_sec;
     return true;
   }
+  if (command == REPORT_STATUS) {
+    transmit_next_status_message_ = true;
+    return true;
+  }
   // TODO(madadam): Handle ALL_RESET. Does voltage threshold change?
   return false;
 }
@@ -347,12 +355,10 @@ void MaybeRxMessage(unsigned long now) {
         message.DebugPrint();
       }
       byte this_packet_command = message.getMyState(RTS_ID);
-      if (!HandleSpecialCommand(this_packet_command, message)) {
-        // Special commands aren't LED states, so don't set new_state for them.
-        if (this_packet_command != IGNORE) {
-          new_state = this_packet_command;
-        }
-      } else {
+      // Check if this is a special command, or update new_state.
+      // Special commands aren't LED states, so don't set new_state for them.
+      if (!HandleSpecialCommand(this_packet_command, message) &&
+          this_packet_command != IGNORE) {
         new_state = this_packet_command;
       }
     }
@@ -510,7 +516,21 @@ void ReportStatus(unsigned long now) {
   Serial.print(voltage_threshold_.smoothed_value());
   Serial.println();
 
+  if (transmit_next_status_message_) {
+    TransmitStatus();
+    transmit_next_status_message_ = false;
+  }
+
   num_bad_rx = 0;
+}
+
+void TransmitStatus() {
+  Serial.println("TransmitStatus"); // FIXME
+  // TODO(madadam): Refactor to share code with ReportStatus?
+  // Format packet,
+  // Switch radio to TX,
+  // Transmit,
+  // Switch radio back to RX.
 }
 
 void MaybeRunLedControl(unsigned long now) {

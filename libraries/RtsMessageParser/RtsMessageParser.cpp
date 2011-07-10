@@ -24,6 +24,7 @@ prog_char cmd_name7[] PROGMEM = "SLEEP";
 prog_char cmd_name8[] PROGMEM = "ATTN";
 prog_char cmd_name9[] PROGMEM = "ATEZ";
 prog_char cmd_name10[] PROGMEM = "SW";
+prog_char cmd_name11[] PROGMEM = "STATUS";
 
 PROGMEM const char *cmd_names[] = {
   cmd_name0,
@@ -37,6 +38,7 @@ PROGMEM const char *cmd_names[] = {
   cmd_name8,
   cmd_name9,
   cmd_name10,
+  cmd_name11,
 };
 
 // Returns -1 on error.

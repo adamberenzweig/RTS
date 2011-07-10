@@ -47,7 +47,6 @@ char versionblurb[20] = "v.1.0 - MASTER";
 #define SOLAR_PIN 7
 #define VOLTAGE_READ_PIN 3
 
-// FIXME not needed for TX?
 #define GDO0 2 // used for polling the RF received data
 
 #define STATUS_INTERVAL_MS 10000UL
@@ -485,10 +484,7 @@ void rfBeeInit(){
   setRFBeeModeWith(TRANSMIT_MODE);
  
   serialMode=SERIALDATAMODE;
-  sleepCounter=0;
   
-  // TODO(madadam): We're not receiving for this test, probably can take this
-  // out too.
   //GD00 is located on pin 2, which results in INT 0
   attachInterrupt(0, ISRVreceiveData, RISING);
   pinMode(GDO0, INPUT); // used for polling the RF received data
@@ -496,7 +492,6 @@ void rfBeeInit(){
 
 // handle interrupt
 void ISRVreceiveData(){
-  sleepCounter=10;
 }
 
 void DebugPrintPacketTx(byte* rxData, byte len,

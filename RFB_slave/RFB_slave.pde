@@ -259,18 +259,18 @@ void ISRVreceiveData(){
 
 void loop(){
   unsigned long now = millis();
-  
+
   // This needs to be called before MaybeRxMessage in this loop.
   MaybeSleep(now);
   // Recompute now, we might have slept a while.
   now = millis();
 
   MaybeRxMessage(now);
-  
+
   MaybeRunLedControl(now);
-  
+
   MaybeReportStatus(now);
-  
+
   // TODO(madadam): Is there any good reason to do this anymore?  Maybe starwars
   // responsiveness will be faster if I don't.
   delay(30);  // FIXME: FADE_INTERVAL_MS

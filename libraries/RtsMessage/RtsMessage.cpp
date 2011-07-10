@@ -102,64 +102,31 @@ byte RtsMessage::getParam(int param_id) const {
 
 byte RtsMessage::getMyState(byte my_id) const {
   byte command = message_[0];
-  byte message_for_me = 0;
+  byte message_for_me = false;
 
-  // Decode the id list if necessary.
-  if (command == SELECT_OFF ||
-      command == SELECT_CONSTELLATION ||
-      command == SELECT_TWINKLE ||
-      command == SELECT_STATUS) {
-    // Skip the command and param bytes.
-    for (int i = RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES;
-         i < RTS_MESSAGE_SIZE; ++i) {
-      if (my_id == message_[i]) {
-        message_for_me = 1;
-        break;
-      }
-      if (0 == message_[i]) {
-        // Zero means end-of-list.
-        break;
-      }
+  // Decode the id list.  Not all commands use it, but it keeps the code
+  // simpler to do for all.
+  // Skip the command and param bytes.
+  int i = RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES;
+  for (; i < RTS_MESSAGE_SIZE; ++i) {
+    if (my_id == message_[i]) {
+      message_for_me = true;
+      break;
+    }
+    if (0 == message_[i]) {
+      // Zero means end-of-list.
+      break;
     }
   }
-
-  byte state = 0;
-  switch (command) {
-    case ALL_OFF:
-      state = LED_OFF;
-      break;
-    case ALL_CONSTELLATION:
-      state = LED_CONSTELLATION;
-      break;
-    case ALL_TWINKLE:
-      state = LED_TWINKLE;
-      break;
-    case SELECT_OFF:
-      state = message_for_me ? LED_OFF : IGNORE;
-      break;
-    case SELECT_CONSTELLATION:
-      state = message_for_me ? LED_CONSTELLATION : LED_OFF;
-      break;
-    case SELECT_TWINKLE:
-      state = message_for_me ? LED_TWINKLE : IGNORE;
-      break;
-    case ALL_SLEEP:
-      state = SLEEP_NOW;
-      break;
-    case ALL_AT_EASE:
-      state = AT_EASE;
-      break;
-    case ALL_ATTENTION:
-      state = ATTENTION;
-      break;
-    case SELECT_STATUS:
-      state = message_for_me ? REPORT_STATUS : IGNORE;
-      break;
-    default:
-      state = IGNORE;
-      break;
+  if (i == RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES) {
+    // The ID list was empty.  An empty ID list means "ALL".
+    message_for_me = true;
   }
-  return state;
+
+  if (!message_for_me) {
+    return RTS_IGNORE;
+  }
+  return command;
 }
 
 byte RtsMessage::checksum() const {

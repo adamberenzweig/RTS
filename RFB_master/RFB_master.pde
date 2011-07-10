@@ -118,13 +118,17 @@ struct TestMessage {
 
 // Messages to cycle through in test mode 1.
 TestMessage test_messages[] = {
-//  { 240000, "ALL_TWK 215 60 0"},  // Sparse blue twinkle.
-//  { 240000, "ALL_TWK 215 60 1"},  // Sparse white twinkle.
+//  { 240000, "TWK 215 60 0"},  // Sparse blue twinkle.
+//  { 240000, "TWK 215 60 1"},  // Sparse white twinkle.
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
-//  { 240000, "ALL_TWK 245 10 1"},  // fast white twinkle
+//  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
-  { 10000, "ALL_TWK 245 10 1"},  // fast white twinkle
-  { 1000, "STATUS 13"},  // Tell Puck 13 to report status.
+  { 60000, "TWK 215 60 0"},  // Sparse blue twinkle.
+  { 60000, "TWK 215 60 1"},  // Sparse white twinkle.
+  { 60000, "TWK 245 10 1"},  // fast white twinkle
+
+//  { 10000, "TWK 245 10 1"},  // fast white twinkle
+//  { 1000, "STATUS 13"},  // Tell Puck 13 to report status.
 
   // "ALL_CST 100 0 100", // All constellation white w/ medium fade-in
 /*  
@@ -151,8 +155,8 @@ unsigned long message_period_ms = TESTING_MESSAGE_PERIOD_MS;
 // TODO(madadam): PROGMEM.
 char* all_attention_message = "ATTN";
 char* at_ease_message = "ATEZ";
-char* all_off_message = "ALL_OFF";
-char* star_wars_prefix = "SEL_CST 0 0 255";
+char* all_off_message = "OFF";
+char* star_wars_prefix = "CST 0 0 255";
 char* sleep_one_hour_message = "SLEEP 60 60";
 
 // Work around a bug that causes the RFBee to stop transmitting after a while.

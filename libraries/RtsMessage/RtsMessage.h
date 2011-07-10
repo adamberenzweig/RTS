@@ -19,37 +19,19 @@ Library for the radio protocol between master and slave.
 // The Transmiter will send one packet every PACKET_PERIOD_MS.
 #define PACKET_PERIOD_MS 250
 
-// TODO(madadam): get rid of the distinction between ALL_ and SELECT_ commands.
-// Assume every command is like Select, except empty ID list means ALL.
-// Then we can get rid of LED_STATE, and getMyState becomes much cleaner.
-
 // **NOTE!!** If you edit this, you must also edit RtsMessageParser.cpp.
 enum RTS_COMMAND {
-  ALL_OFF,
-  ALL_CONSTELLATION,
-  ALL_TWINKLE,
-  SELECT_OFF,
-  SELECT_CONSTELLATION,
-  SELECT_TWINKLE,
-  ALL_RESET,
-  ALL_SLEEP,
-  ALL_ATTENTION,
-  ALL_AT_EASE,
-  STAR_WARS,
-  SELECT_STATUS,
+  RTS_IGNORE,
+  RTS_OFF,
+  RTS_CONSTELLATION,
+  RTS_TWINKLE,
+  RTS_RESET,
+  RTS_SLEEP,
+  RTS_ATTENTION,
+  RTS_AT_EASE,
+  RTS_STAR_WARS,
+  RTS_SEND_STATUS,
   NUM_RTS_COMMANDS
-};
-
-enum LED_STATE {
-  IGNORE,
-  LED_OFF,
-  LED_CONSTELLATION,
-  LED_TWINKLE,
-  SLEEP_NOW,
-  ATTENTION,
-  AT_EASE,
-  REPORT_STATUS,
-  NUM_LED_STATES
 };
 
 // If you add more params, you'll need to make RTS_MSG_PARAM_SIZE bigger.
@@ -106,7 +88,7 @@ class RtsMessage {
   
   void DebugPrint() const;
 
-  // Return the LED_STATE this slave should be in based on this message.
+  // Return the RTS_COMMAND that this slave should run based on the message.
   byte getMyState(byte my_id) const;
 
   // You must call this before writing to the message.
@@ -119,7 +101,7 @@ class RtsMessage {
   byte addId(byte id);
   byte getId(byte index) const;
 
-  // 0 < param_id < RTS_MSG_PARAM_SIZE
+  // 0 <= param_id < RTS_MSG_PARAM_SIZE
   bool addParam(int param_id, byte value);
   byte getParam(int param_id) const;
 

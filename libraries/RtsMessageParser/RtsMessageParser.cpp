@@ -13,18 +13,16 @@ Parses human-readable commands into RtsMessages.
 
 // NOTE: Keep this in sync with the RTS_COMMANDS enum in RtsMessage.h
 #define MAX_CMD_NAME_SIZE 7
-prog_char cmd_name0[] PROGMEM = "ALL_OFF";
-prog_char cmd_name1[] PROGMEM = "ALL_CST";
-prog_char cmd_name2[] PROGMEM = "ALL_TWK";
-prog_char cmd_name3[] PROGMEM = "SEL_OFF";
-prog_char cmd_name4[] PROGMEM = "SEL_CST";
-prog_char cmd_name5[] PROGMEM = "SEL_TWK";
-prog_char cmd_name6[] PROGMEM = "RESET";
-prog_char cmd_name7[] PROGMEM = "SLEEP";
-prog_char cmd_name8[] PROGMEM = "ATTN";
-prog_char cmd_name9[] PROGMEM = "ATEZ";
-prog_char cmd_name10[] PROGMEM = "SW";
-prog_char cmd_name11[] PROGMEM = "STATUS";
+prog_char cmd_name0[] PROGMEM = "IGNORE";
+prog_char cmd_name1[] PROGMEM = "OFF";
+prog_char cmd_name2[] PROGMEM = "CST";
+prog_char cmd_name3[] PROGMEM = "TWK";
+prog_char cmd_name4[] PROGMEM = "RESET";
+prog_char cmd_name5[] PROGMEM = "SLEEP";
+prog_char cmd_name6[] PROGMEM = "ATTN";
+prog_char cmd_name7[] PROGMEM = "ATEZ";
+prog_char cmd_name8[] PROGMEM = "SW";
+prog_char cmd_name9[] PROGMEM = "STATUS";
 
 PROGMEM const char *cmd_names[] = {
   cmd_name0,
@@ -37,8 +35,6 @@ PROGMEM const char *cmd_names[] = {
   cmd_name7,
   cmd_name8,
   cmd_name9,
-  cmd_name10,
-  cmd_name11,
 };
 
 // Returns -1 on error.
@@ -74,12 +70,10 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       command = maybe_cmd;
       rts_message->setCommand(command);
     } else if (tok_num < RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES &&
-               (command == ALL_CONSTELLATION ||
-                command == SELECT_CONSTELLATION ||
-                command == ALL_TWINKLE ||
-                command == SELECT_TWINKLE ||
-                command == ALL_SLEEP ||
-                command == STAR_WARS)) {
+               (command == RTS_CONSTELLATION ||
+                command == RTS_TWINKLE ||
+                command == RTS_SLEEP ||
+                command == RTS_STAR_WARS)) {
       // It's a param.
       int val = atoi(tok);
       if (val > 255 || val < 0) {

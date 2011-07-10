@@ -146,10 +146,10 @@ unsigned long last_attention_time = 0;
 bool is_radio_sleeping_ = false;
 // When at_attention, never sleep the radio.
 bool at_attention_ = false;
-byte current_msg_checksum = 0;
+byte current_msg_checksum_ = 0;
 // The currently active twinkler, or NULL if not twinkling.
 Twinkler* twinkler = NULL;
-// For obeying SLEEP_NOW commands.
+// For obeying RTS_SLEEP commands.
 unsigned int sleep_on_next_loop_for_sec = 0;
 // Set in response to a REPORT_STATUS message.  When set, ReportStatusMessage
 // transmits a status packet in addition to the usual serial logging.
@@ -166,14 +166,14 @@ byte transmit_next_status_message_ = false;
 RandomTwinkler random_twinkler;
 ConstellationTwinkler constellation_twinkler;
 
-Twinkler* TwinklerFactory(byte led_state, const RtsMessage& message) {
-  if (led_state == LED_CONSTELLATION) {
+Twinkler* TwinklerFactory(byte command, const RtsMessage& message) {
+  if (command == RTS_CONSTELLATION) {
     constellation_twinkler.Init(message);
     return &constellation_twinkler;
-  } else if (led_state == LED_TWINKLE) {
+  } else if (command == RTS_TWINKLE) {
     random_twinkler.Init(message);
     return &random_twinkler;
-  } else if (led_state == LED_OFF) {
+  } else if (command == RTS_OFF) {
     TurnOffLightsNice();
     return NULL;
   }
@@ -280,16 +280,16 @@ void loop(){
 }
 
 bool HandleSpecialCommand(byte command, const RtsMessage& message) {
-  if (command == ATTENTION) {
+  if (command == RTS_ATTENTION) {
     at_attention_ = true;
     last_attention_time = millis();
     return true;
   }
-  if (command == AT_EASE) {
+  if (command == RTS_AT_EASE) {
     at_attention_ = false;
     return true;
   }
-  if (command == SLEEP_NOW) {
+  if (command == RTS_SLEEP) {
     unsigned int sleep_time_sec = message.getParam(SLEEP_TIME_SEC);
     byte multiplier = message.getParam(SLEEP_TIME_MULTIPLIER);
     if (multiplier) {
@@ -299,7 +299,7 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
     sleep_on_next_loop_for_sec = sleep_time_sec;
     return true;
   }
-  if (command == REPORT_STATUS) {
+  if (command == RTS_SEND_STATUS) {
     transmit_next_status_message_ = true;
     return true;
   }
@@ -311,7 +311,7 @@ static byte rxDataBuffer[CCx_PACKT_LEN];
 
 void MaybeRxMessage(unsigned long now) {
   byte did_rx_good_packet = 0;
-  byte new_state = IGNORE;
+  byte new_state = RTS_IGNORE;
 
   // Check if we need to time out of attention mode.
   if (at_attention_ &&
@@ -358,7 +358,7 @@ void MaybeRxMessage(unsigned long now) {
       // Check if this is a special command, or update new_state.
       // Special commands aren't LED states, so don't set new_state for them.
       if (!HandleSpecialCommand(this_packet_command, message) &&
-          this_packet_command != IGNORE) {
+          this_packet_command != RTS_IGNORE) {
         new_state = this_packet_command;
       }
     }
@@ -373,24 +373,20 @@ void MaybeRxMessage(unsigned long now) {
 
   // Only act on the most recent packet, and only if it differs
   // from the current state (detected by a change in the checksum).
-  if (new_state != IGNORE) {
+  if (new_state != RTS_IGNORE) {
     // TODO(madadam): Can I avoid parsing this twice?
     RtsMessage message(rxData);
     byte checksum = message.checksum();
     // Note that we're using a braindead checksum and it's only one byte.
     // We might get collisions, in which case the puck will ignore the
     // new message.
-    // FIXME: Is this a possible source of getting stuck?
-    // Although wouldn't it be the same for all pucks, since the message is
-    // broadcast?  Also, it should recover on the next message.
-    // Try simulating a collision, what's the behavior?
-    if (checksum != current_msg_checksum) {
+    if (checksum != current_msg_checksum_) {
       last_state_  = new_state;
       twinkler = TwinklerFactory(new_state, message);
       if (twinkler && debug_level > 0) {
         DPrintln(twinkler->Name());
       }
-      current_msg_checksum = checksum;
+      current_msg_checksum_ = checksum;
     }
   }
 }
@@ -491,16 +487,6 @@ void ReportStatus(unsigned long now) {
   int voltage_reading = analogRead(VOLTAGE_READ_PIN);
   float scaled_voltage = ScaleVoltage(voltage_reading);
   voltage_threshold_.Update(scaled_voltage, now);
-  /*
-  DPrintInt(" pc3", voltage_reading);
-  // DPrintFloat(" v", voltage_threshold_.smoothed_value());
-  DPrintByte("", voltage_threshold_.state());
-  
-  DPrintln();
-  if (at_attention_) {
-    DPrintln("At ATTN");
-  }
-  */
 
   // Logging.
   Serial.print(now, DEC);
@@ -551,7 +537,7 @@ void LedControlTimeSlice() {
     }
   }
   twinkler->Update();
-  //twinkler->DebugPrint();
+  // twinkler->DebugPrint();
 }
 
 void FullSleepFor(unsigned int sleep_time_sec) {

@@ -303,7 +303,7 @@ void loop(){
   }
   if (should_listen_for_status_response_) {
     // 100 == kStatusListenTimeMs.
-    WaitToReceiveStatusUntilTimeout(100);
+    //WaitToReceiveStatusUntilTimeout(100);
   }
 
   MaybeReportStatus(now);

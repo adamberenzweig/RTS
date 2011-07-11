@@ -361,7 +361,7 @@ int setRFBeeModeWith(byte mode) {
     delay(1);
     CCx.Write(CCx_MCSM1 ,   0x00 );//TXOFF_MODE->stay in IDLE
     CCx.Strobe(CCx_SFTX);
-    CCx.Strobe(CCx_STX);
+    //CCx.Strobe(CCx_STX);  FIXME
     break;
   case RECEIVE_MODE:
     CCx.Strobe(CCx_SIDLE);

@@ -6,14 +6,6 @@ Date: September 16, 2010
 ----------------------
 **************************************/
 
-// FIXME
-// Stability improvement ideas.
-// - Waking up from radio sleep, increase delay.  what happens if try to read from
-//   the radio before it's fully woken?
-// - Rip out all the attention/at-ease code.
-// - Infinite loop parsing bad data from the radio? (waitAndReceiveRFBeeData, or
-//   RtsMessage if it gets that far, can it?)
-
 //#define DEBUG
 
 #ifdef MEMORY_DEBUG
@@ -153,7 +145,7 @@ Twinkler* twinkler = NULL;
 unsigned int sleep_on_next_loop_for_sec = 0;
 // Set in response to a REPORT_STATUS message.  When set, ReportStatusMessage
 // transmits a status packet in addition to the usual serial logging.
-byte transmit_next_status_message_ = false;
+byte transmit_status_message_count_ = 0;
 
 /*********************************************/
 
@@ -269,6 +261,7 @@ void loop(){
   now = millis();
 
   MaybeRxMessage(now);
+  MaybeTxStatus();
 
   MaybeRunLedControl(now);
 
@@ -300,11 +293,18 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
     return true;
   }
   if (command == RTS_SEND_STATUS) {
-    transmit_next_status_message_ = true;
+    transmit_status_message_count_ = 1;
     return true;
   }
   // TODO(madadam): Handle ALL_RESET. Does voltage threshold change?
   return false;
+}
+
+inline void MaybeTxStatus() {
+  if (transmit_status_message_count_) {
+    TransmitStatus();
+    --transmit_status_message_count_;
+  }
 }
 
 static byte rxDataBuffer[CCx_PACKT_LEN];
@@ -502,21 +502,39 @@ void ReportStatus(unsigned long now) {
   Serial.print(voltage_threshold_.smoothed_value());
   Serial.println();
 
-  if (transmit_next_status_message_) {
-    TransmitStatus();
-    transmit_next_status_message_ = false;
-  }
-
   num_bad_rx = 0;
+}
+
+// RTS_ID of the master.
+#define MASTER_ID 1
+// Length of the status message.  Must be less than CCx_PACKET_LENGTH
+// TODO(madadam): Refactor, share this with master.
+#define RTS_STATUS_MESSAGE_SIZE 16
+
+void PopulateStatusMessage(byte* txData) {
+  // FIXME: Populate with real status
+  // FIXME: Why is this producing garbage on the other end??
+  for (byte i = 0; i < RTS_STATUS_MESSAGE_SIZE; ++i) {
+    txData[i] = i;
+  }
 }
 
 void TransmitStatus() {
   Serial.println("TransmitStatus"); // FIXME
-  // TODO(madadam): Refactor to share code with ReportStatus?
-  // Format packet,
-  // Switch radio to TX,
-  // Transmit,
-  // Switch radio back to RX.
+  setRFBeeModeWith(TRANSMIT_MODE);
+  // Wait a few ms to give the master time to transition to receive mode.
+  // Unclear whether this is necessary, experiment.
+  delay(3);
+
+  PopulateStatusMessage(rxDataBuffer);
+  transmitData(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE, RTS_ID, MASTER_ID);
+
+  // Put the radio back the way we found it.
+  if (is_radio_sleeping_) {
+    setRFBeeModeWith(SLEEP_MODE);
+  } else {
+    setRFBeeModeWith(RECEIVE_MODE);
+  }
 }
 
 void MaybeRunLedControl(unsigned long now) {
@@ -548,9 +566,9 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   // TODO: Make a Twinkler mode for shutting down (fade-out).
   // How to know when it's finished so that we can go to sleep?
   // Could just count the cycles and then shut down.
-  // FIXME: Add a FallingAsleepTwinkler?
+  // Add a FallingAsleepTwinkler?
   
-  // FIXME: we haven't actually turned off the lights yet.
+  // TODO: we haven't actually turned off the lights yet.
   // we should go into a "falling_asleep" mode until we finish
   // turning off the lights nicely.  What happens if we rx something during
   // that time?

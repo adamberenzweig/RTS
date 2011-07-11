@@ -113,6 +113,7 @@ int CheckStatusForOverflow(byte status) {
    return OK;
 }
 
+/*
 void lowPowerOn(){
    // Does setting additional registers make a difference? why not try? HOLY SHIT BALLS - 2 mA
   CCx.Write(CCx_MCSM2 ,0x01);
@@ -128,3 +129,4 @@ void lowPowerOn(){
   sleepNow(SLEEP_MODE_IDLE);
   //CCx.Strobe(CCx_SIDLE);
 }
+*/

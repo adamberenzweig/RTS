@@ -123,12 +123,14 @@ TestMessage test_messages[] = {
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
 //  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
+  /*
   { 60000, "TWK 215 60 0"},  // Sparse blue twinkle.
   { 60000, "TWK 215 60 1"},  // Sparse white twinkle.
   { 60000, "TWK 245 10 1"},  // fast white twinkle
+  */
 
-//  { 10000, "TWK 245 10 1"},  // fast white twinkle
-//  { 1000, "STATUS 13"},  // Tell Puck 13 to report status.
+  { 10000, "TWK 245 10 1"},  // fast white twinkle
+  { 10000, "STATUS 13"},  // Tell Puck 13 to report status.
 
   // "ALL_CST 100 0 100", // All constellation white w/ medium fade-in
 /*  
@@ -151,6 +153,8 @@ unsigned long message_period_ms = TESTING_MESSAGE_PERIOD_MS;
 // to daytime sleep mode.
 #define SOLAR_SLEEP_CHECK_INTERVAL_MS 5000
 #define TESTING_SLEEP_TIME_SEC 1200  // 60*20 20mins
+
+bool should_listen_for_status_response_ = false;
 
 // TODO(madadam): PROGMEM.
 char* all_attention_message = "ATTN";
@@ -176,6 +180,7 @@ byte rtsMessageData[RTS_MESSAGE_SIZE];
 void SetMessageFromString(char* input) {
   RtsMessage message(rtsMessageData);
   ParseRtsMessageFromString(input, &message);
+  should_listen_for_status_response_ = (message.command() == RTS_SEND_STATUS);
 }
 
 void SetMessage(const char* message) {
@@ -296,6 +301,11 @@ void loop(){
       }
     }
   }
+  if (should_listen_for_status_response_) {
+    // 100 == kStatusListenTimeMs.
+    WaitToReceiveStatusUntilTimeout(100);
+  }
+
   MaybeReportStatus(now);
 }
 
@@ -314,7 +324,7 @@ bool MaybeRunStarWars() {
   // sequence.  So extract all params now.  If that becomes a pain, then make a
   // separate buffer for the star wars message and pass the full message to
   // RunStarWars().
-  if (message.command() != STAR_WARS) {
+  if (message.command() != RTS_STAR_WARS) {
     return false;
   }
   byte num = message.getParam(STAR_WARS_NUM);
@@ -438,6 +448,40 @@ bool SolarTransition(unsigned long now, byte* solar_state) {
   return false;
 }
 
+#define RTS_STATUS_MESSAGE_SIZE 16
+static byte rxDataBuffer[CCx_PACKT_LEN];
+
+void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
+  setRFBeeModeWith(RECEIVE_MODE);
+  delayMicroseconds(200);
+  unsigned long deadline = millis() + timeout_ms;
+  while (millis() < deadline) {
+    // TODO(madadam): How many packets is the slave sending?  Maybe we need to
+    // consume more than one to prevent RX buffer overflow?  Or we can shut
+    // down the receiver after getting a valid packet.
+    if (digitalRead(GDO0) == HIGH) {
+      Serial.println("rx hit");
+      byte len;
+      byte srcAddress, destAddress;
+      byte rssi;
+      byte lqi;
+      int result = receiveData(rxDataBuffer, &len,
+                               &srcAddress, &destAddress,
+                               &rssi, &lqi);
+      if (result == ERR) {
+      } else {
+        // Got a status packet.
+        // FIXME: Record it.
+        Serial.println("Status packet:"); // FIXME scaffold
+        DebugPrintPacketTx(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE,
+                          srcAddress, destAddress);
+        break;
+      }
+    }
+  }
+  setRFBeeModeWith(TRANSMIT_MODE);
+}
+
 void MaybeReportStatus(unsigned long now) {
   if (IsTimerExpired(now, &last_status_report, STATUS_INTERVAL_MS)) {
     //memrep();
@@ -488,14 +532,14 @@ void rfBeeInit(){
   
   CCx.PowerOnStartUp();
   setCCxConfig();
-  // TCV mode is flaky.  Use TX-only mode.
-  setRFBeeModeWith(TRANSMIT_MODE);
- 
   serialMode=SERIALDATAMODE;
   
   //GD00 is located on pin 2, which results in INT 0
   attachInterrupt(0, ISRVreceiveData, RISING);
   pinMode(GDO0, INPUT); // used for polling the RF received data
+
+  // TCV mode is flaky.  Use TX-only mode.
+  setRFBeeModeWith(TRANSMIT_MODE);
 }
 
 // handle interrupt

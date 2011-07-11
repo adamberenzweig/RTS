@@ -119,8 +119,9 @@ byte CCX::Write(byte addr, byte dat)
   byte result;
   
   Spi.slaveSelect(LOW);
-  // wait for MISO to go low
-  while(digitalRead(MISO_PIN));
+  // wait for MISO to go low, with poll limit to prevent getting stuck.
+  int poll_limit = 1000;
+  while (digitalRead(MISO_PIN) && poll_limit) { --poll_limit; }
   
   result=Spi.transfer(addr);
   result=Spi.transfer(dat);
@@ -136,8 +137,9 @@ byte CCX::WriteBurst(byte addr, const byte* dataPtr, byte size)
   byte result;
   
   Spi.slaveSelect(LOW);
-  // wait for MISO to go low
-  while(digitalRead(MISO_PIN));
+  // wait for MISO to go low, with poll limit to prevent getting stuck.
+  int poll_limit = 1000;
+  while (digitalRead(MISO_PIN) && poll_limit) { --poll_limit; }
   
   result=Spi.transfer(addr | 0x40);
 
@@ -158,13 +160,14 @@ byte CCX::Strobe(byte addr)
   byte result;
 
   Spi.slaveSelect(LOW);
-  // wait for MISO to go low
-  while(digitalRead(MISO_PIN));
-  
+  // wait for MISO to go low, with poll limit to prevent getting stuck.
+  int poll_limit = 1000;
+  while (digitalRead(MISO_PIN) && poll_limit) { --poll_limit; }
+
   result=Spi.transfer(addr);
-  
+
   Spi.slaveSelect(HIGH);
-  
+
   return result;
 }
 

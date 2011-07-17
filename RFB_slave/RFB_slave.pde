@@ -88,6 +88,9 @@ int pin_number[NUM_LEDS];
 #define LONELY_SLEEP_SEC_MAX 15 * 60  // 15 min
 #define LONELY_SLEEP_EXPONENTIAL_FACTOR 2
 
+// See the comment in RFB_master.pde.
+#define POST_TRANSMIT_REST_MS 75
+
 // RadioSleep settings:
 // When sleeping the radio, wake it up with this much time until we anticipate
 // receiving the next packet:
@@ -140,6 +143,7 @@ unsigned long last_attention_time = 0;
 bool is_radio_sleeping_ = false;
 // When at_attention, never sleep the radio.
 bool at_attention_ = false;
+byte radio_mode_ = RECEIVE_MODE;
 byte current_msg_checksum_ = 0;
 // The currently active twinkler, or NULL if not twinkling.
 Twinkler* twinkler = NULL;
@@ -237,6 +241,11 @@ void InitLedStates() {
   last_led_control_time = millis();
 }
 
+inline void setRadioMode(byte mode) {
+  setRFBeeModeWith(mode);
+  radio_mode_ = mode;
+}
+
 void rfBeeInit(){
   CCx.PowerOnStartUp();
   byte config_id = 0;
@@ -249,7 +258,7 @@ void rfBeeInit(){
   // GD00 is located on pin 2, which results in INT 0:
   attachInterrupt(0, ISRVreceiveData, RISING);
   pinMode(GDO0,INPUT); // used for polling the RF received data
-  setRFBeeModeWith(RECEIVE_MODE);
+  setRadioMode(RECEIVE_MODE);
 }
 
 // handle interrupt
@@ -265,7 +274,7 @@ void loop(){
   now = millis();
 
   MaybeRxMessage(now);
-  MaybeTxStatus();
+  MaybeTxStatus(now);
 
   MaybeRunLedControl(now);
 
@@ -298,6 +307,11 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
   }
   if (command == RTS_SEND_STATUS) {
     transmit_status_message_count_ = 1;
+    // FIXME: HACK HACK.  The master rests for 75 ms after transmitting before
+    // switching to RX, so rest here too.  (The right thing is for the master to
+    // get notified by the radio when it's done transmitting, rather than
+    // hard-coding a rest period).
+    delay(POST_TRANSMIT_REST_MS);
     return true;
   }
   // TODO(madadam): Handle ALL_RESET. Does voltage threshold change?
@@ -332,7 +346,7 @@ void MaybeRxMessage(unsigned long now) {
   if (is_radio_sleeping_ &&
       IsTimerExpired(now, &last_radio_sleep_start, kRadioSleepTimeMs)) {
     // DPrintln("radio sleep off");
-    setRFBeeModeWith(RECEIVE_MODE);
+    setRadioMode(RECEIVE_MODE);
     is_radio_sleeping_ = 0;
     // Reset the lonely-sleep timer, we can't have heard anything while
     // the radio was sleeping.
@@ -375,7 +389,7 @@ void MaybeRxMessage(unsigned long now) {
 
   if (did_rx_good_packet && kRadioSleepTimeMs && !at_attention_) {
     last_radio_sleep_start = last_rx_ms;
-    setRFBeeModeWith(SLEEP_MODE);
+    setRadioMode(SLEEP_MODE);
     is_radio_sleeping_ = 1;
     // DPrintln("radio sleep on");
   }
@@ -530,20 +544,19 @@ void PopulateStatusMessage(byte* txData) {
 
 void TransmitStatus() {
   Serial.println("TransmitStatus"); // FIXME
-  setRFBeeModeWith(TRANSMIT_MODE);
-  // Wait a few ms to give the master time to transition to receive mode.
-  // Unclear whether this is necessary, experiment.
-  delay(3);
+  byte old_radio_mode = radio_mode_;
+  if (radio_mode_ != TRANSMIT_MODE) {
+    setRadioMode(TRANSMIT_MODE);
+  }
 
   PopulateStatusMessage(rxDataBuffer);
   transmitData(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE, RTS_ID, MASTER_ID);
+  delay(POST_TRANSMIT_REST_MS);
 
   // Put the radio back the way we found it.
-  if (is_radio_sleeping_) {
-    setRFBeeModeWith(SLEEP_MODE);
-  } else {
-    setRFBeeModeWith(RECEIVE_MODE);
-  }
+  if (old_radio_mode != TRANSMIT_MODE) {
+    setRadioMode(old_radio_mode);
+  } 
 }
 
 void MaybeRunLedControl(unsigned long now) {
@@ -585,7 +598,7 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   
   // Go to sleep.  This call won't return until we're woken up.
   unsigned long sleep_time = 1000UL * sleep_time_sec;
-  setRFBeeModeWith(SLEEP_MODE);
+  setRadioMode(SLEEP_MODE);
   total_sleep_time += sleepWithTimeout(sleep_time);
 
   // Just for debugging. don't do this in prod.
@@ -594,7 +607,7 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   // we're in here.
   // RunStartupSequence();
   
-  setRFBeeModeWith(RECEIVE_MODE);
+  setRadioMode(RECEIVE_MODE);
   is_radio_sleeping_ = 0;
   // Reset the sleep-if-lonely clock.
   last_rx_ms = millis();

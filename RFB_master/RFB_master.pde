@@ -147,6 +147,9 @@ TestMessage test_messages[] = {
 char buf[50];
 // The index of the current test message.
 byte current_message = 0;
+// Current state of the radio.
+byte radio_mode_ = TRANSMIT_MODE;
+
 #define TESTING_MESSAGE_PERIOD_MS 10000UL
 unsigned long message_period_ms = TESTING_MESSAGE_PERIOD_MS;
 // If nonzero, check the solar voltage once per interval, possibly transitioning
@@ -167,6 +170,15 @@ char* sleep_one_hour_message = "SLEEP 60 60";
 // Resetting the rfbee radio mode periodically seems to help.
 #define RADIO_RESET_INTERVAL_PACKETS 1000UL
 
+// Time after transmitting to wait before doing anything else with the radio.
+// We don't want to switch to RX mode or try to send another packet before the
+// radio has finished transmitting.  There's probably a more principled way to
+// have the radio let us know when it's done, but this seems to be effective.
+// Things go bad if this is less than 60ms.
+// Must be less than PACKET_PERIOD_MS
+#define POST_TRANSMIT_REST_MS 75
+
+
 // FIXME: need to double-buffer this to swap current good message while parsing the next one.
 byte rtsMessageData[RTS_MESSAGE_SIZE];
 
@@ -185,6 +197,7 @@ void SetMessageFromString(char* input) {
 
 void SetMessage(const char* message) {
   // Make a copy because ParseRtsMessage is destructive.
+  // TODO(madadam): It should take a const string and make a copy internally.
   strcpy(buf, message);
   SetMessageFromString(buf);
 }
@@ -303,7 +316,7 @@ void loop(){
   }
   if (should_listen_for_status_response_) {
     // 100 == kStatusListenTimeMs.
-    //WaitToReceiveStatusUntilTimeout(100);
+    WaitToReceiveStatusUntilTimeout(100);
   }
 
   MaybeReportStatus(now);
@@ -342,9 +355,6 @@ void RunStarWars(byte num, byte type, byte min_puck, byte max_puck) {
   DPrintln("Running Star Wars.");
   SetMessage(all_attention_message);
   SendNMessages(16);
-  // Things go bad if this is less than 60ms.  Maybe speeding the slave up by
-  // taking out debug printing could handle it.
-  const int inter_msg_interval = 75;
 #define kNumPucksPerMessage 2
 
   byte ids[kNumPucksPerMessage];
@@ -355,7 +365,6 @@ void RunStarWars(byte num, byte type, byte min_puck, byte max_puck) {
       // radio sleep each time they receive a packet.
       SetMessage(all_attention_message);
       SendOneMessage();
-      delay(inter_msg_interval);
 
       ids[0] = i;
       if (type == 2) {
@@ -364,7 +373,6 @@ void RunStarWars(byte num, byte type, byte min_puck, byte max_puck) {
       }
       SetStarWarsMessage(ids, kNumPucksPerMessage);
       SendOneMessage();
-      delay(inter_msg_interval);
     }
     // Now pause for a bit, but keep sending messages so pucks don't sleep.
     SetMessage(all_off_message);
@@ -386,8 +394,6 @@ void MaybeChangeMessage(unsigned long now) {
     // TODO(madadam): Do something similar in the Mega for prod.
     SetMessage(at_ease_message);
     SendOneMessage();
-    // TODO(madadam): Brittle; bug lurking here if message period gets shorter.
-    delay(100);  // Not a full packet period.
 
     SetNextMessage();
   }
@@ -413,21 +419,23 @@ void MaybeSendMessage(unsigned long now, int period_ms) {
 }
 
 void SendOneMessage() {
+  if (radio_mode_ != TRANSMIT_MODE ||
+      (RADIO_RESET_INTERVAL_PACKETS > 0 &&
+       tx_counter % RADIO_RESET_INTERVAL_PACKETS == 0)) {
+    SetRadioMode(TRANSMIT_MODE);
+  }
   transmitData(rtsMessageData, RTS_MESSAGE_SIZE, srcAddress, destAddress);
   // NOTE: This slows things down a lot!  If you want fast performance for
   // Star Wars mode, don't do this here:
   //DebugPrintPacketTx(rtsMessageData, RTS_MESSAGE_SIZE, srcAddress, destAddress);
   tx_counter++;
-  if (RADIO_RESET_INTERVAL_PACKETS > 0 &&
-      tx_counter % RADIO_RESET_INTERVAL_PACKETS == 0) {
-    setRFBeeModeWith(TRANSMIT_MODE);
-  }
+  delay(POST_TRANSMIT_REST_MS);
 }
 
 void SendNMessages(int n) {
   for (int i = 0; i < n; ++i) {
     SendOneMessage();
-    delay(PACKET_PERIOD_MS);
+    delay(PACKET_PERIOD_MS - POST_TRANSMIT_REST_MS);
   }
 }
 
@@ -452,8 +460,9 @@ bool SolarTransition(unsigned long now, byte* solar_state) {
 static byte rxDataBuffer[CCx_PACKT_LEN];
 
 void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
-  setRFBeeModeWith(RECEIVE_MODE);
-  delayMicroseconds(200);
+  if (radio_mode_ != RECEIVE_MODE) {
+    SetRadioMode(RECEIVE_MODE);
+  }
   unsigned long deadline = millis() + timeout_ms;
   while (millis() < deadline) {
     // TODO(madadam): How many packets is the slave sending?  Maybe we need to
@@ -469,6 +478,7 @@ void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
                                &srcAddress, &destAddress,
                                &rssi, &lqi);
       if (result == ERR) {
+        Serial.println("Bad packet"); // FIXME scaffold
       } else {
         // Got a status packet.
         // FIXME: Record it.
@@ -479,7 +489,6 @@ void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
       }
     }
   }
-  setRFBeeModeWith(TRANSMIT_MODE);
 }
 
 void MaybeReportStatus(unsigned long now) {
@@ -527,6 +536,11 @@ void RunStartupSequence() {
   }
 }
 
+inline void SetRadioMode(byte mode) {
+  radio_mode_ = mode;
+  setRFBeeModeWith(mode);
+}
+
 void rfBeeInit(){
   DEBUGPRINT()
   
@@ -539,7 +553,7 @@ void rfBeeInit(){
   pinMode(GDO0, INPUT); // used for polling the RF received data
 
   // TCV mode is flaky.  Use TX-only mode.
-  setRFBeeModeWith(TRANSMIT_MODE);
+  SetRadioMode(TRANSMIT_MODE);
 }
 
 // handle interrupt

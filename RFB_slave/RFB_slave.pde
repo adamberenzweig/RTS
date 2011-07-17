@@ -111,6 +111,7 @@ SmoothedThreshold voltage_threshold_;
 
 // Status/Debug
 #define STATUS_INTERVAL_MS 2000UL
+#define TRANSMIT_STATUS_INTERVAL_MS 900000UL  // 15 minutes
 const int debug_level = 0;
 unsigned int num_bad_rx = 0;
 byte last_state_ = 0;  // Only for status reporting.
@@ -118,6 +119,7 @@ unsigned long total_sleep_time = 0;
 
 // Timers:
 unsigned long last_status_report = 0;
+unsigned long last_transmit_status_time_ = 0;
 // Time since we started radio sleep:
 unsigned long last_radio_sleep_start = 0;
 // The sleep-when-lonely timer.
@@ -143,8 +145,10 @@ byte current_msg_checksum_ = 0;
 Twinkler* twinkler = NULL;
 // For obeying RTS_SLEEP commands.
 unsigned int sleep_on_next_loop_for_sec = 0;
-// Set in response to a REPORT_STATUS message.  When set, ReportStatusMessage
-// transmits a status packet in addition to the usual serial logging.
+
+// When > 0, transmit a status packet to the master and decrement.
+// Set in response to a RTS_SEND_STATUS message, or if
+// TRANSMIT_STATUS_INTERVAL_MS is nonzero.
 byte transmit_status_message_count_ = 0;
 
 /*********************************************/
@@ -300,7 +304,12 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
   return false;
 }
 
-inline void MaybeTxStatus() {
+inline void MaybeTxStatus(unsigned long now) {
+  if (IsTimerExpired(now,
+                     &last_transmit_status_time_,
+                     TRANSMIT_STATUS_INTERVAL_MS)) {
+    transmit_status_message_count_ = 5;
+  }
   if (transmit_status_message_count_) {
     TransmitStatus();
     --transmit_status_message_count_;

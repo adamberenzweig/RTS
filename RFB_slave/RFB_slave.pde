@@ -522,7 +522,6 @@ void ReportStatus(unsigned long now) {
 #define MASTER_ID 1
 
 void TransmitStatus() {
-  Serial.println("Tx"); // FIXME
   byte old_radio_mode = radio_mode_;
   if (radio_mode_ != TRANSMIT_MODE) {
     setRadioMode(TRANSMIT_MODE);

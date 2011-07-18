@@ -116,13 +116,11 @@ SmoothedThreshold voltage_threshold_;
 #define STATUS_INTERVAL_MS 2000UL
 #define TRANSMIT_STATUS_INTERVAL_MS 900000UL  // 15 minutes
 const int debug_level = 0;
-unsigned int num_bad_rx = 0;
-byte last_state_ = 0;  // Only for status reporting.
-unsigned long total_sleep_time = 0;
+StatusMessage status_;
 
 // Timers:
 unsigned long last_status_report = 0;
-unsigned long last_transmit_status_time_ = 0;
+//unsigned long last_transmit_status_time_ = 0;
 // Time since we started radio sleep:
 unsigned long last_radio_sleep_start = 0;
 // The sleep-when-lonely timer.
@@ -148,7 +146,7 @@ byte current_msg_checksum_ = 0;
 // The currently active twinkler, or NULL if not twinkling.
 Twinkler* twinkler = NULL;
 // For obeying RTS_SLEEP commands.
-unsigned int sleep_on_next_loop_for_sec = 0;
+unsigned int sleep_on_next_loop_for_sec_ = 0;
 
 // When > 0, transmit a status packet to the master and decrement.
 // Set in response to a RTS_SEND_STATUS message, or if
@@ -197,6 +195,7 @@ void setup(){
   Serial.println(versionblurb);
   Serial.print("ID: ");
   Serial.println(RTS_ID, DEC);
+  status_.my_id = RTS_ID;
   
   InitVoltageThresholder();
   InitLedStates();
@@ -302,14 +301,14 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
       sleep_time_sec *= multiplier;
     }
     // Sleep on the next loop.  Otherwise returning from here is awkward.
-    sleep_on_next_loop_for_sec = sleep_time_sec;
+    sleep_on_next_loop_for_sec_ = sleep_time_sec;
     return true;
   }
   if (command == RTS_SEND_STATUS) {
     transmit_status_message_count_ = 1;
-    // FIXME: HACK HACK.  The master rests for 75 ms after transmitting before
-    // switching to RX, so rest here too.  (The right thing is for the master to
-    // get notified by the radio when it's done transmitting, rather than
+    // HACK HACK. The master rests for 75 ms after transmitting before
+    // switching to RX, so rest here too.  (The right thing is for the master
+    // to get notified by the radio when it's done transmitting, rather than
     // hard-coding a rest period).
     delay(POST_TRANSMIT_REST_MS);
     return true;
@@ -319,11 +318,12 @@ bool HandleSpecialCommand(byte command, const RtsMessage& message) {
 }
 
 inline void MaybeTxStatus(unsigned long now) {
+  /*
   if (IsTimerExpired(now,
                      &last_transmit_status_time_,
                      TRANSMIT_STATUS_INTERVAL_MS)) {
     transmit_status_message_count_ = 5;
-  }
+  }*/
   if (transmit_status_message_count_) {
     TransmitStatus();
     --transmit_status_message_count_;
@@ -364,7 +364,7 @@ void MaybeRxMessage(unsigned long now) {
   while (digitalRead(GDO0) == HIGH && loop_limit) {
     --loop_limit;
     if (debug_level > 0) {
-      DPrint("Rx => ");
+      //DPrint("Rx => ");
     }
     last_rx_ms = millis();
     // We heard something, so reset the lonely sleep exponential backoff.
@@ -375,7 +375,7 @@ void MaybeRxMessage(unsigned long now) {
       did_rx_good_packet = 1;
       RtsMessage message(rxData);
       if (debug_level > 0) {
-        message.DebugPrint();
+        //message.DebugPrint();
       }
       byte this_packet_command = message.getMyState(RTS_ID);
       // Check if this is a special command, or update new_state.
@@ -404,10 +404,10 @@ void MaybeRxMessage(unsigned long now) {
     // We might get collisions, in which case the puck will ignore the
     // new message.
     if (checksum != current_msg_checksum_) {
-      last_state_  = new_state;
+      status_.last_state  = new_state;
       twinkler = TwinklerFactory(new_state, message);
       if (twinkler && debug_level > 0) {
-        DPrintln(twinkler->Name());
+        //DPrintln(twinkler->Name());
       }
       current_msg_checksum_ = checksum;
     }
@@ -450,14 +450,14 @@ byte waitAndReceiveRFBeeData(byte** rxData) {
 
   if (good_packet) {
     if (!ValidatePacket(*rxData, len, srcAddress, destAddress, rssi)) {
-      num_bad_rx++;
+      status_.num_bad_rx++;
       DPrintln("Rejected packet.");
       good_packet = 0;
     }
   }
   
   if (len < RTS_MESSAGE_SIZE) {
-    num_bad_rx++;
+    status_.num_bad_rx++;
     DPrintln("packet too short.");
     good_packet = 0;
   }
@@ -510,47 +510,26 @@ void ReportStatus(unsigned long now) {
   int voltage_reading = analogRead(VOLTAGE_READ_PIN);
   float scaled_voltage = ScaleVoltage(voltage_reading);
   voltage_threshold_.Update(scaled_voltage, now);
+  status_.smoothed_voltage = voltage_threshold_.smoothed_value();
 
-  // Logging.
-  Serial.print(now, DEC);
-  Serial.print(" ");
-  Serial.print(total_sleep_time, DEC);
-  Serial.print(" ");
-  Serial.print(voltage_reading, DEC);
-  Serial.print(" ");
-  Serial.print(analogRead(SOLAR_PIN), DEC);
-  Serial.print(" ");
-  Serial.print(last_state_, DEC);
-  Serial.print(" ");
-  Serial.print(voltage_threshold_.smoothed_value());
-  Serial.println();
+  status_.timestamp = now;
+  status_.solar_reading = analogRead(SOLAR_PIN);
 
-  num_bad_rx = 0;
+  status_.LogToSerial();
 }
 
 // RTS_ID of the master.
 #define MASTER_ID 1
-// Length of the status message.  Must be less than CCx_PACKET_LENGTH
-// TODO(madadam): Refactor, share this with master.
-#define RTS_STATUS_MESSAGE_SIZE 16
-
-void PopulateStatusMessage(byte* txData) {
-  // FIXME: Populate with real status
-  // FIXME: Why is this producing garbage on the other end??
-  for (byte i = 0; i < RTS_STATUS_MESSAGE_SIZE; ++i) {
-    txData[i] = i;
-  }
-}
 
 void TransmitStatus() {
-  Serial.println("TransmitStatus"); // FIXME
+  Serial.println("Tx"); // FIXME
   byte old_radio_mode = radio_mode_;
   if (radio_mode_ != TRANSMIT_MODE) {
     setRadioMode(TRANSMIT_MODE);
   }
 
-  PopulateStatusMessage(rxDataBuffer);
-  transmitData(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE, RTS_ID, MASTER_ID);
+  status_.WriteToBuffer(rxDataBuffer);
+  transmitData(rxDataBuffer, sizeof(StatusMessage), RTS_ID, MASTER_ID);
   delay(POST_TRANSMIT_REST_MS);
 
   // Put the radio back the way we found it.
@@ -599,7 +578,7 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   // Go to sleep.  This call won't return until we're woken up.
   unsigned long sleep_time = 1000UL * sleep_time_sec;
   setRadioMode(SLEEP_MODE);
-  total_sleep_time += sleepWithTimeout(sleep_time);
+  status_.total_sleep_time += sleepWithTimeout(sleep_time);
 
   // Just for debugging. don't do this in prod.
   // Do this before turning the radio back on, otherwise we can get
@@ -617,11 +596,11 @@ void FullSleepFor(unsigned int sleep_time_sec) {
 }
 
 void MaybeSleep(unsigned long now) {
-  if (sleep_on_next_loop_for_sec > 0) {
+  if (sleep_on_next_loop_for_sec_ > 0) {
     // Note that when we wake from this we flush the RX buffer, otherwise we
     // might sleep multiple times in a row if more than one packet was sent.
-    FullSleepFor(sleep_on_next_loop_for_sec);
-    sleep_on_next_loop_for_sec = 0;
+    FullSleepFor(sleep_on_next_loop_for_sec_);
+    sleep_on_next_loop_for_sec_ = 0;
     return;
   }
 

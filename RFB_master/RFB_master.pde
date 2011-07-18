@@ -483,8 +483,11 @@ void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
         // Got a status packet.
         // FIXME: Record it.
         Serial.println("Status packet:"); // FIXME scaffold
-        DebugPrintPacketTx(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE,
-                          srcAddress, destAddress);
+        //DebugPrintPacketTx(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE,
+        //                   srcAddress, destAddress);
+        StatusMessage status;
+        status.ParseFromBuffer(rxDataBuffer);
+        status.LogToSerial();
         break;
       }
     }

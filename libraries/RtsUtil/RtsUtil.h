@@ -80,4 +80,44 @@ class SmoothedThreshold {
   byte state_;
 };
 
+
+class StatusMessage {
+ public:
+  // sizof(StatusMessage) needs to be kept below the max packet size.
+  // TODO(madadam): Add lonely sleep, Lo V count.
+  byte my_id;
+  unsigned long timestamp;
+  unsigned long total_sleep_time;
+  float smoothed_voltage;
+  int solar_reading;
+  unsigned int num_bad_rx;
+  byte last_state;
+
+  void LogToSerial() {
+    const char* whitespace = " ";
+    Serial.print(my_id, DEC);
+    Serial.print(whitespace);
+    Serial.print(timestamp, DEC);
+    Serial.print(whitespace);
+    Serial.print(total_sleep_time, DEC);
+    Serial.print(whitespace);
+    Serial.print(num_bad_rx, DEC);
+    Serial.print(whitespace);
+    Serial.print(solar_reading, DEC);
+    Serial.print(whitespace);
+    Serial.print(last_state, DEC);
+    Serial.print(whitespace);
+    Serial.print(smoothed_voltage);
+    Serial.println();
+  }
+
+  void WriteToBuffer(byte* buffer) {
+    memcpy(buffer, this, sizeof(StatusMessage));
+  }
+
+  void ParseFromBuffer(const byte* buffer) {
+    memcpy(this, buffer, sizeof(StatusMessage));
+  }
+};
+
 #endif  // RTS_UTIL_H

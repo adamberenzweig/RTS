@@ -28,7 +28,7 @@ byte srcAddress = RTS_ID;
 // Actually the pucks ignore this since we set them to global-receive mode (address check off).
 byte destAddress = 2;
 
-char versionblurb[20] = "v.1.0 - MASTER";
+char versionblurb[20] = "v.1.1 - MASTER";
 
 //#define INTERRUPT_RECEIVE
 //#define DEBUG 

@@ -10,6 +10,7 @@ char* versionblurb = "v.1.0 - Control Box";
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
 #include <PrintUtil.h>
+#include <RtsUtil.h>
 #include "HardwareSerial.h"
 
 // ----------------- Button Inputs -----------------
@@ -111,20 +112,8 @@ enum DAY_CYCLE_STATE {
 
 MessageTimer message_timer_;
 
-// FIXME: Use MessageTimer and its buffer.
-//byte rtsMessageData[RTS_MESSAGE_SIZE];
-
-// TODO(madadam): move to library?
-void SetMessageFromString(char* input) {
-  RtsMessage message(rtsMessageData);
-  ParseRtsMessageFromString(input, &message);
-}
-
-void SetTestMessage(byte message_index) {
-  // Make a copy because ParseRtsMessage is destructive.
-  strcpy(buf, test_messages[message_index]);
-  SetMessageFromString(buf);
-}
+// Master-Mega communication happens over this port:
+HardwareSerial* master_serial = &Serial1;
 
 // We can afford a larger buffer on the mega.  Make it big enough to handle
 // error logging and debug packet printing from the master.
@@ -132,10 +121,15 @@ void SetTestMessage(byte message_index) {
 byte serialData[BUFFLEN];
 
 void MaybeReadMasterSerial() {
-  if (ReadMessageStringFromSerial(&Serial1, serialData, BUFFLEN)) {
+  if (ReadMessageStringFromSerial(master_serial, serialData, BUFFLEN)) {
     Serial.print("Read from master: ");
-    Serial.println(serialData);
+    Serial.println((char*)serialData);
   }
+}
+
+// The master needs to be in MESSAGE_SERIAL mode for this.
+inline void SendMessageToMaster() {
+  master_serial->println(message_timer_.current_message_string());
 }
 
 void LedTestPattern() {
@@ -167,23 +161,32 @@ void setup() {
   Serial.begin(9600);
   Serial.println(versionblurb);
 
-  // Master-Mega communication happens on Serial1.
-  Serial1.begin(9600);
+  master_serial->begin(9600);
 
   LedTestPattern();
   SwitchButtonLeds(HIGH);
+
+  InitActiveCycle();
+}
+
+void InitActiveCycle() {
+  byte num_msgs = (byte)(sizeof(rts_messages)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(rts_messages, num_msgs);
 }
 
 // FIXME: use states like the master test.
 bool is_hibernating_ = false;
+byte day_cycle_state_ = ACTIVE;
 
 void loop() {
   LedTestPattern();  // FIXME for testing
   unsigned long now = millis();
-  if (!is_hibernating_) {
+  if (day_cycle_state_ == ACTIVE) {
     //HandleButtons();
     //UpdateLeds();
-    //MaybeSendMessage(now)
+    if (message_timer_.MaybeChangeMessage(now)) {
+      SendMessageToMaster();
+    }
   }
 
   MaybeReadMasterSerial();

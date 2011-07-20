@@ -49,6 +49,9 @@ class MessageTimer {
   const RtsMessage& rts_message() const { return rts_message_; }
   byte* message_data() { return message_data_; }
 
+  // It's an error to call this before StartWithMessages.
+  const char* current_message_string() const { return current_message_string_; }
+
   // num_messages must be less than 256.
   void StartWithMessages(TimedMessage* messages, byte num_messages) {
     messages_ = messages;
@@ -69,12 +72,15 @@ class MessageTimer {
 
   // Change to the next message if enough time has elapsed.
   // Call this periodically, see the comment at the top of the file.
-  void MaybeChangeMessage(unsigned long now) {
+  // Returns true if the message changed.
+  bool MaybeChangeMessage(unsigned long now) {
     // duration_ms_ == 0 means never transition automatically.
     if (duration_ms_ > 0 && IsExpired(now)) {
       current_message_ = (current_message_ + 1) % num_messages_;
       SetCurrentMessage(current_message_);
+      return true;
     }
+    return false;
   }
 
   void ResetTimer() {
@@ -87,6 +93,9 @@ class MessageTimer {
 
   // Set a message directly.  Doesn't affect the timer.
   void SetMessageFromString(const char* message) {
+    // TODO(madadam): This is a bit dangerous when called by an external caller,
+    // because we could be holding a pointer to a string that disappears.
+    current_message_string_ = message;
     // Make a copy because ParseRtsMessage is destructive.
     // TODO(madadam): Do this nondestructively, avoid the copy, get rid of buf_.
     strncpy(buf_, message, BUFLEN - 1);
@@ -107,6 +116,7 @@ class MessageTimer {
   // These should be ints, but I'm being frugal.
   byte num_messages_;
   byte current_message_;
+  const char* current_message_string_;
 };
 
 #endif  // MESSAGE_TIMER_H

@@ -6,9 +6,11 @@ Author: Adam Berenzweig
 
 char* versionblurb = "v.1.0 - Control Box"; 
 
+#include <MessageTimer.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
 #include <PrintUtil.h>
+#include "HardwareSerial.h"
 
 // ----------------- Button Inputs -----------------
 int asm_button_pin =  51;       // The pin from the Astronomy Button
@@ -75,14 +77,42 @@ int output_pins[NUM_OUTPUT_PINS] = {
   31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53,   // Astrology LEDs
 };
 
-byte rtsMessageData[RTS_MESSAGE_SIZE];
-
 char buf[64];
-char* test_messages[] = {
-  "ALL_TWK 255 255 1",
-  "SEL_TWK 100 255 0 2 3 4 5 6 7 8 9",
-  "ALL_CST 50 50 50"
+TimedMessage rts_messages[] = {
+  { 60000, "TWK 215 60 0" },  // Sparse blue.
+  { 60000, "TWK 215 60 1" },  // Sparse white.
+  { 60000, "TWK 245 10 1" },  // Fast white.
+  { 15000, "CST 100 0 100 2 4 6 8" },  // A constellation.
+  { 1000,  "STATUS 2 3 4 5 6 7 8" },  // Get status from some stars.
 };
+
+// States for ACTIVE, SLEEPING, STANDBY.
+// Each state has a TimedMessage array associated with it.  Pass that array to
+// the MessageTimer?  Or to a higher level class that keeps the array, knows the
+// length, which is the next message, etc.
+
+// What happens in response to a button push?  Go to another state?
+// Or keep a separate TimedMessage array for each state.  Now we need timed
+// transitions between these states.  Is that overkill?
+
+// State machine for button pushes and day cycle transitions.
+
+// Button push:  LED fades etc. Each button has its own state machine.
+
+// How would star wars work here? I don't think the MessageTimer class will
+// support it.  Probably move the star wars code from the Master into here.
+
+
+enum DAY_CYCLE_STATE {
+  ACTIVE,
+  SLEEPING,
+  STANDBY,
+};
+
+MessageTimer message_timer_;
+
+// FIXME: Use MessageTimer and its buffer.
+//byte rtsMessageData[RTS_MESSAGE_SIZE];
 
 // TODO(madadam): move to library?
 void SetMessageFromString(char* input) {
@@ -94,6 +124,18 @@ void SetTestMessage(byte message_index) {
   // Make a copy because ParseRtsMessage is destructive.
   strcpy(buf, test_messages[message_index]);
   SetMessageFromString(buf);
+}
+
+// We can afford a larger buffer on the mega.  Make it big enough to handle
+// error logging and debug packet printing from the master.
+#define BUFFLEN 256
+byte serialData[BUFFLEN];
+
+void MaybeReadMasterSerial() {
+  if (ReadMessageStringFromSerial(&Serial1, serialData, BUFFLEN)) {
+    Serial.print("Read from master: ");
+    Serial.println(serialData);
+  }
 }
 
 void LedTestPattern() {
@@ -124,20 +166,27 @@ void setup() {
   }
   Serial.begin(9600);
   Serial.println(versionblurb);
+
+  // Master-Mega communication happens on Serial1.
+  Serial1.begin(9600);
+
   LedTestPattern();
   SwitchButtonLeds(HIGH);
 }
 
-bool is_hibernating = false;
+// FIXME: use states like the master test.
+bool is_hibernating_ = false;
 
 void loop() {
   LedTestPattern();  // FIXME for testing
   unsigned long now = millis();
-  if (!is_hibernating) {
+  if (!is_hibernating_) {
     //HandleButtons();
     //UpdateLeds();
     //MaybeSendMessage(now)
-  } 
-  
+  }
+
+  MaybeReadMasterSerial();
+
   //HibernationControl(now);
 } 

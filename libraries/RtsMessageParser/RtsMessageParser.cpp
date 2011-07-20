@@ -64,7 +64,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       // The first token is the command.
       int maybe_cmd = CommandFromName(tok);
       if (maybe_cmd < 0) {
-        DPrint("Invalid cmd");
+        DPrint("Bad cmd");
         return false;
       }
       command = maybe_cmd;
@@ -77,7 +77,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       // It's a param.
       int val = atoi(tok);
       if (val > 255 || val < 0) {
-        DPrint("bad prm");
+        DPrint("Bad prm");
         return false;
       }
       rts_message->addParam(tok_num - 1, val);
@@ -85,7 +85,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       // It's an ID.
       int id = atoi(tok);
       if (id > 255 || id < 0) {
-        DPrint("bad id");
+        DPrint("Bad id");
         return false;
       }
       rts_message->addId(id);
@@ -99,34 +99,34 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
 
 #define SERIALCMDTERMINATOR 10  // <cr>
 
-// Read available data from the serial buffer up to a newline or buflen.
-// Return true iff we read something.
-bool ReadMessageStringFromSerial(byte* buffer, byte buflen) {
-  static byte pos = 0;
-  while (Serial.available() && pos < buflen) {
-    byte data = Serial.read();
+bool ReadMessageStringFromSerial(HardwareSerial* serial,
+                                 byte* buffer,
+                                 byte buflen) {
+  byte pos = 0;
+  // -1 to leave room to null-terminate.
+  while (serial->available() && pos < buflen - 1) {
+    byte data = serial->read();
     // Ganky! Arduino IDE doesn't send newline or cr. So use '$' also.
     if (data == SERIALCMDTERMINATOR || data == '$') {
-      DPrintByte("bytes read", pos);
-      DPrintln();
-      // Null-terminate.
-      buffer[pos] = NULL;
-      pos = 0;
-      return true;
+      break;
     }
     buffer[pos] = data;
     ++pos;
   }
-  if (pos >= buflen) {
-    // Prevent buffer overrun, discard previous data.
-    pos = 0;
-  }
-  return false;
+  // Null-terminate.
+  buffer[pos] = NULL;
+  return pos > 0;
 }
 
 bool ReadRtsMessageFromSerial(byte* buffer, byte buflen,
                               RtsMessage* rts_message) {
-  if (ReadMessageStringFromSerial(buffer, buflen)) {
+  return ReadRtsMessageFromSerial(&Serial, buffer, buflen, rts_message);
+}
+
+bool ReadRtsMessageFromSerial(HardwareSerial* serial,
+                              byte* buffer, byte buflen,
+                              RtsMessage* rts_message) {
+  if (ReadMessageStringFromSerial(serial, buffer, buflen)) {
     return ParseRtsMessageFromString((char*)buffer, rts_message);
   }
   return false;

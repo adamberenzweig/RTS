@@ -60,7 +60,7 @@ bool RtsMessage::writeByteAt(int index, byte value) {
 }
 
 // TODO(madadam): Use RTS_MSG_COMMAND_BYTES, don't assume single byte.
-byte RtsMessage::command() {
+byte RtsMessage::command() const {
   return message_[0];
 }
 

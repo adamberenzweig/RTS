@@ -94,7 +94,7 @@ class RtsMessage {
   // You must call this before writing to the message.
   void initWrite();
 
-  byte command();
+  byte command() const;
   void setCommand(byte command);
 
   // return 0 on error.

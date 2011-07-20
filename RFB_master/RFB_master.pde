@@ -11,6 +11,7 @@ Several testing modes:
 **************************************/
 
 #include <MemoryFree.h>
+#include <MessageTimer.h>
 #include <PrintUtil.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
@@ -55,8 +56,6 @@ unsigned long last_status_report = 0;
 unsigned long tx_counter = 0;
 // Last time we sent.
 unsigned long last_tx_time = 0;
-// Last time we changed the message
-unsigned long last_message_time = 0;
 // Last time we checked the solar voltage for solar-sleep.
 unsigned long last_solar_check = 0;
 unsigned long last_cycle_transition = 0;
@@ -111,13 +110,10 @@ enum MESSAGE_MODES {
 // Test mode parameters:
 #define NUM_MSG_TO_SEND -1   // -1 to go forever
 
-struct TestMessage {
-  unsigned long duration_ms;
-  char* message;
-};
+MessageTimer message_timer_;
 
 // Messages to cycle through in test mode 1.
-TestMessage test_messages[] = {
+TimedMessage test_messages[] = {
 //  { 240000, "TWK 215 60 0"},  // Sparse blue twinkle.
 //  { 240000, "TWK 215 60 1"},  // Sparse white twinkle.
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
@@ -144,15 +140,12 @@ TestMessage test_messages[] = {
 */
 };
 
-// Big enough for the longest test_message.
-char buf[50];
+
 // The index of the current test message.
-byte current_message = 0;
+byte current_message_ = 0;  // FIXME moved inside MessageTimer?
 // Current state of the radio.
 byte radio_mode_ = TRANSMIT_MODE;
 
-#define TESTING_MESSAGE_PERIOD_MS 10000UL
-unsigned long message_period_ms = TESTING_MESSAGE_PERIOD_MS;
 // If nonzero, check the solar voltage once per interval, possibly transitioning
 // to daytime sleep mode.
 #define SOLAR_SLEEP_CHECK_INTERVAL_MS 5000
@@ -162,10 +155,15 @@ bool should_listen_for_status_response_ = false;
 
 // TODO(madadam): PROGMEM.
 char* all_attention_message = "ATTN";
-char* at_ease_message = "ATEZ";
+// TODO(madadam):
+// When I introduced the ATTENTION command, I was worried that pucks
+// could get stuck at attention if they miss the AT_EASE at the end of the
+// star wars routine.  To be safe, every time we change messages, we sent 
+// AT_EASE.  Pucks already at ease will either miss it, or not care, and
+// pucks stuck at attention have a chance to recover.  If this still matters,
+// we can intersperse short AT_EASE into the test messages.
+//char* at_ease_message = "ATEZ";
 char* all_off_message = "OFF";
-char* star_wars_prefix = "CST 0 0 255";
-char* sleep_one_hour_message = "SLEEP 60 60";
 
 // Work around a bug that causes the RFBee to stop transmitting after a while.
 // Resetting the rfbee radio mode periodically seems to help.
@@ -180,8 +178,6 @@ char* sleep_one_hour_message = "SLEEP 60 60";
 #define POST_TRANSMIT_REST_MS 75
 
 
-// FIXME: need to double-buffer this to swap current good message while parsing the next one.
-byte rtsMessageData[RTS_MESSAGE_SIZE];
 
 //================this is for Master RFBee======================
 
@@ -189,29 +185,6 @@ byte rtsMessageData[RTS_MESSAGE_SIZE];
 // Why set it from a #define and then just read it back again?  Only need to
 // use it if we can't hardcode the config data and instead want to configure
 // with a serial port or similar.
-
-void SetMessageFromString(char* input) {
-  RtsMessage message(rtsMessageData);
-  ParseRtsMessageFromString(input, &message);
-  should_listen_for_status_response_ = (message.command() == RTS_SEND_STATUS);
-}
-
-void SetMessage(const char* message) {
-  // Make a copy because ParseRtsMessage is destructive.
-  // TODO(madadam): It should take a const string and make a copy internally.
-  strcpy(buf, message);
-  SetMessageFromString(buf);
-}
-
-void SetStarWarsMessage(byte* ids, int num_ids) {
-  FormatStarWarsMessage(buf, star_wars_prefix, ids, num_ids);
-  SetMessageFromString(buf);
-}
-
-void SetTestMessage(byte message_index) {
-  message_period_ms = test_messages[message_index].duration_ms;
-  SetMessage(test_messages[message_index].message);
-}
 
 void setup(){
   // For the voltage reading pin. NOTE: requires cutting VREF from V+.
@@ -247,24 +220,17 @@ void setup(){
 }
 
 void InitActiveCycle() {
-  current_message = 0;
-  last_message_time = millis();
-  SetTestMessage(current_message);
+  byte num_msgs = (byte)(sizeof(test_messages) / sizeof(TimedMessage));
+  message_timer_.StartWithMessages(test_messages, num_msgs);
 }
 
-// FIXME: bug probably here.  either:
-// 1) since we don't use smoothedthreshold, noise in the solar reading leads to
-// accidental transition from night->day.
-// 2) standby timer expires without solar transition.  we go active, but
-// solar_state_ is still DAY.  then what happens?
-//  ACTIVE, DAY
-//  ACTIVE, NIGHT (call InitActiveCycle() again, resets but harmless.)
-//  SLEEPING, NIGHT
-//  SLEEPING, DAY
-//  STANDBY, DAY
-//  ACTIVE, NIGHT (solar triggered)
-// 3) power cycled during the day.  solar_state starts as NIGHT. what happens?
+TimedMessage bedtime_sequence[] =  {
+  { 4000, "OFF" },
+  { 0,    "SLEEP 60 60", },  // Sleep one hour, indefnitely.
+};
 
+// TODO(madadam): In production, this code or its equivalent will run in the
+// Mega.  Rip it out of here, or at least refactor to a library.
 void CheckForDayCycleTransition(unsigned long now) {
   if ((STANDBY_DURATION_MS > 0 &&
        day_cycle_state_ == STANDBY &&
@@ -274,14 +240,12 @@ void CheckForDayCycleTransition(unsigned long now) {
     day_cycle_state_ = ACTIVE;
     InitActiveCycle();
   }
-  // FIXME should these be else-ifs?  would we ever transition twice?
   if (day_cycle_state_ == ACTIVE &&
       IsTimerExpired(now, &last_cycle_transition, ACTIVE_DURATION_MS)) {
     day_cycle_state_ = SLEEPING;
     // Bedtime Sequence:
-    SetMessage(all_off_message);
-    SendNMessages(16);
-    SetMessage(sleep_one_hour_message);  // 60*60 = one hour.
+    byte num_msgs = (byte)(sizeof(bedtime_sequence) / sizeof(TimedMessage));
+    message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
   }
   if (day_cycle_state_ == SLEEPING &&
       IsTimerExpired(now, &last_cycle_transition, SLEEPING_DURATION_MS)) {
@@ -304,15 +268,13 @@ void loop(){
   } else {
     if (day_cycle_state_ == ACTIVE) {
       if (MESSAGE_MODE == TEST_CYCLE) {
-        MaybeChangeMessage(now);
+        message_timer_.MaybeChangeMessage(now);
       } else if (MESSAGE_MODE == MESSAGE_SERIAL) {
         TryReadMessageFromSerial();
       }
     }
     if (day_cycle_state_ != STANDBY) {
-      if (!MaybeRunStarWars()) {
-        MaybeSendMessage(now, PACKET_PERIOD_MS);
-      }
+      MaybeSendMessage(now, PACKET_PERIOD_MS);
     }
   }
   if (should_listen_for_status_response_) {
@@ -323,87 +285,16 @@ void loop(){
   MaybeReportStatus(now);
 }
 
-void SetNextMessage() {
-  int num_msgs = sizeof(test_messages) / sizeof(TestMessage);
-  current_message = (current_message + 1) % num_msgs;
-  SetTestMessage(current_message);
+inline void SetMessage(const char* message) {
+  message_timer_.SetMessageFromString(message);
 }
 
-// Return true if we ran a star wars sequence.
-bool MaybeRunStarWars() {
-  // Assume that the message has already been written.
-  RtsMessage message(rtsMessageData);
-  // We can't keep the message around while star wars is running because the
-  // underlying rtsMessageData buffer gets reused by each message in the
-  // sequence.  So extract all params now.  If that becomes a pain, then make a
-  // separate buffer for the star wars message and pass the full message to
-  // RunStarWars().
-  if (message.command() != RTS_STAR_WARS) {
-    return false;
-  }
-  byte num = message.getParam(STAR_WARS_NUM);
-  byte type = message.getParam(STAR_WARS_TYPE);
-  byte min_id = message.getId(0);
-  byte max_id = message.getId(1);
-  RunStarWars(num, type, min_id, max_id);
-  // After we're done, transition to the next message.
-  SetNextMessage();
-  last_message_time = millis();
-  return true;
-}
-
-void RunStarWars(byte num, byte type, byte min_puck, byte max_puck) {
-  DPrintln("Running Star Wars.");
-  SetMessage(all_attention_message);
-  SendNMessages(16);
-#define kNumPucksPerMessage 2
-
-  byte ids[kNumPucksPerMessage];
-  for (int j = 0; j < num; ++j) {
-    for (int i = min_puck; i <= max_puck; ++i) {
-      // Sending ATTENTION in between every message gives a pretty good
-      // chance that all pucks will get it.  If they don't they'll go into
-      // radio sleep each time they receive a packet.
-      SetMessage(all_attention_message);
-      SendOneMessage();
-
-      ids[0] = i;
-      if (type == 2) {
-        // both ways
-        ids[1] = max_puck - i + min_puck;
-      }
-      SetStarWarsMessage(ids, kNumPucksPerMessage);
-      SendOneMessage();
-    }
-    // Now pause for a bit, but keep sending messages so pucks don't sleep.
-    SetMessage(all_off_message);
-    SendNMessages(4);
-  }
-  // A bit dangerous, if somebody misses this, they'll run out of batteries
-  // real fast.  We send regular AT_EASE messages to prevent that.
-  SetMessage(at_ease_message);
-  SendNMessages(10);
-}
-
-void MaybeChangeMessage(unsigned long now) {
-  if (IsTimerExpired(now, &last_message_time, message_period_ms)) {
-    // Since we've introduced the ATTENTION command, I'm worried that pucks
-    // could get stuck at attention if they miss the AT_EASE at the end of the
-    // star wars routine.  To be safe, every time we change messages, send
-    // AT_EASE.  Pucks already at ease will either miss it, or not care, and
-    // pucks stuck at attention have a chance to recover.
-    // TODO(madadam): Do something similar in the Mega for prod.
-    SetMessage(at_ease_message);
-    SendOneMessage();
-
-    SetNextMessage();
-  }
-}
-
+// FIXME: change to read timed message from serial?  or also have another
+// option, message with no timeout, and have this be a special case.
 void TryReadMessageFromSerial() {
-  RtsMessage message(rtsMessageData);
-  if (ReadRtsMessageFromSerial(serialData, BUFFLEN, &message)) {
-    DPrintInt("Read cmd", message.command());
+  if (ReadMessageStringFromSerial(&Serial, serialData, BUFFLEN)) {
+    message_timer_.SetMessageFromString((const char*)serialData);
+    DPrintInt("Read cmd", message_timer_.rts_message().command());
     DPrintln();
   }
 }
@@ -411,7 +302,12 @@ void TryReadMessageFromSerial() {
 void MaybeSendMessage(unsigned long now, int period_ms) {
   if ((NUM_MSG_TO_SEND < 0 || tx_counter < NUM_MSG_TO_SEND) &&
        IsTimerExpired(now, &last_tx_time, period_ms)) {
-    SendOneMessage();
+    SendOneMessage(message_timer_.message_data());
+
+    // If we just sent a SEND_STATUS command, we should listen for a
+    // response soon.
+    should_listen_for_status_response_ =
+      (message_timer_.rts_message().command() == RTS_SEND_STATUS);
     
     // FIXME: In prod, attached to the Mega, there won't be any LEDs, right?
     // Remove this so we don't confuse the mega by writing to pins. 
@@ -419,26 +315,29 @@ void MaybeSendMessage(unsigned long now, int period_ms) {
   }
 }
 
-void SendOneMessage() {
+void SendOneMessage(byte* message_data) {
   if (radio_mode_ != TRANSMIT_MODE ||
       (RADIO_RESET_INTERVAL_PACKETS > 0 &&
        tx_counter % RADIO_RESET_INTERVAL_PACKETS == 0)) {
     SetRadioMode(TRANSMIT_MODE);
   }
-  transmitData(rtsMessageData, RTS_MESSAGE_SIZE, srcAddress, destAddress);
+  // FIXME: message_timer_.message_data()
+  transmitData(message_data, RTS_MESSAGE_SIZE, srcAddress, destAddress);
   // NOTE: This slows things down a lot!  If you want fast performance for
   // Star Wars mode, don't do this here:
-  //DebugPrintPacketTx(rtsMessageData, RTS_MESSAGE_SIZE, srcAddress, destAddress);
+  //DebugPrintPacketTx(message_data, RTS_MESSAGE_SIZE, srcAddress, destAddress);
   tx_counter++;
   delay(POST_TRANSMIT_REST_MS);
 }
 
+/*
 void SendNMessages(int n) {
   for (int i = 0; i < n; ++i) {
-    SendOneMessage();
+    SendOneMessage(message_timer_.message_data());
     delay(PACKET_PERIOD_MS - POST_TRANSMIT_REST_MS);
   }
 }
+*/
 
 // TODO(madadam): Use SmoothedThreshold here.
 bool SolarTransition(unsigned long now, byte* solar_state) {
@@ -509,23 +408,6 @@ void MaybeReportStatus(unsigned long now) {
 
     Serial.println();
   }
-}
-
-// TODO(madadam): Move to a library.  SleepControl?
-int IsTimerExpired(unsigned long now,
-                   unsigned long* last_time,
-                   unsigned long interval_ms) {
-  if (now < *last_time) {
-    // time overflow, happens every 50 days
-    *last_time = 0;
-  }
-  // Don't underflow the subtraction.
-  if (now >= interval_ms &&
-      *last_time < now - interval_ms) {
-    *last_time = now;
-    return 1;
-  }
-  return 0;
 }
 
 void RunStartupSequence() {

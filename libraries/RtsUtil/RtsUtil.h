@@ -120,4 +120,20 @@ class StatusMessage {
   }
 };
 
+int IsTimerExpired(unsigned long now,
+                   unsigned long* last_time,
+                   unsigned long interval_ms) {
+  if (now < *last_time) {
+    // time overflow, happens every 50 days
+    *last_time = 0;
+  }
+  // Don't underflow the subtraction.
+  if (now >= interval_ms &&
+      *last_time < now - interval_ms) {
+    *last_time = now;
+    return 1;
+  }
+  return 0;
+}
+
 #endif  // RTS_UTIL_H

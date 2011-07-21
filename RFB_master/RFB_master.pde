@@ -126,7 +126,21 @@ TestMessage test_messages[] = {
   { 60000, "TWK 215 60 0"},  // Sparse blue twinkle.
   { 60000, "TWK 215 60 1"},  // Sparse white twinkle.
   { 60000, "TWK 245 10 1"},  // fast white twinkle
-  { 10000, "STATUS 68 69 70 71 72 73"},  // Tell a few pucks to report status.
+  { 1000,  "STATUS 68"},  // Tell each puck to report status.
+  { 1000,  "STATUS 69"},
+  { 1000,  "STATUS 70"},
+  { 1000,  "STATUS 71"},
+  { 1000,  "STATUS 72"},
+  { 1000,  "STATUS 73"},
+
+  { 1000,  "STATUS 75"},
+  { 1000,  "STATUS 76"},
+  { 1000,  "STATUS 78"},
+  { 1000,  "STATUS 79"},
+  { 1000,  "STATUS 86"},
+  { 1000,  "STATUS 87"},
+  { 1000,  "STATUS 88"},
+  { 1000,  "STATUS 89"},
 
   /*
   { 10000, "TWK 245 10 1"},  // fast white twinkle

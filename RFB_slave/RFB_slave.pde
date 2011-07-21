@@ -18,7 +18,7 @@ Date: September 16, 2010
 #include <Twinkler.h>
 
 // Puck-Specific Configuration
-#define RTS_ID 13           // The Unique ID of this RFBee.
+#define RTS_ID 68           // The Unique ID of this RFBee.
 
 // Voltage tuning factor.
 // A constant used to compute the puck's voltage from the raw values read
@@ -450,21 +450,19 @@ byte waitAndReceiveRFBeeData(byte** rxData) {
 
   if (good_packet) {
     if (!ValidatePacket(*rxData, len, srcAddress, destAddress, rssi)) {
-      status_.num_bad_rx++;
       //DPrintln("Rejected packet.");
       good_packet = 0;
     }
   }
   
   if (len < RTS_MESSAGE_SIZE) {
-    status_.num_bad_rx++;
     //DPrintln("packet too short.");
     good_packet = 0;
   }
 
   if (!good_packet) {
+    status_.num_bad_rx++;
     DPrintln("bad packet");
-    // Saves 400 bytes not to compile this.  Man we are cutting it close.
     //DebugPrintPacket(result, *rxData, len, srcAddress, destAddress, rssi, lqi);
   }
   

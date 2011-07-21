@@ -451,19 +451,21 @@ byte waitAndReceiveRFBeeData(byte** rxData) {
   if (good_packet) {
     if (!ValidatePacket(*rxData, len, srcAddress, destAddress, rssi)) {
       status_.num_bad_rx++;
-      DPrintln("Rejected packet.");
+      //DPrintln("Rejected packet.");
       good_packet = 0;
     }
   }
   
   if (len < RTS_MESSAGE_SIZE) {
     status_.num_bad_rx++;
-    DPrintln("packet too short.");
+    //DPrintln("packet too short.");
     good_packet = 0;
   }
 
   if (!good_packet) {
-    DebugPrintPacket(result, *rxData, len, srcAddress, destAddress, rssi, lqi);
+    DPrintln("bad packet");
+    // Saves 400 bytes not to compile this.  Man we are cutting it close.
+    //DebugPrintPacket(result, *rxData, len, srcAddress, destAddress, rssi, lqi);
   }
   
   return good_packet;
@@ -606,6 +608,7 @@ void MaybeSleep(unsigned long now) {
   // Low-voltage sleep.
   if (voltage_threshold_.state() == SmoothedThreshold::STATE_LOW) {
     DPrintln("\nLO V");
+    status_.num_low_voltage_sleep++;
     FullSleepFor(LOW_VOLTAGE_SLEEP_TIME_SEC);
     return;
   }
@@ -615,6 +618,7 @@ void MaybeSleep(unsigned long now) {
   if (!is_radio_sleeping_ &&
       IsTimerExpired(now, &last_rx_ms, LONELY_TIMEOUT_MS)) {
     DPrintln("\nLonely");
+    status_.num_lonely_sleep++;
     FullSleepFor(next_lonely_sleep_interval);
     next_lonely_sleep_interval *= LONELY_SLEEP_EXPONENTIAL_FACTOR;
     if (next_lonely_sleep_interval > LONELY_SLEEP_SEC_MAX) {

@@ -78,12 +78,11 @@ int output_pins[NUM_OUTPUT_PINS] = {
   31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53,   // Astrology LEDs
 };
 
-char buf[64];
 TimedMessage rts_messages[] = {
-  { 60000, "TWK 215 60 0" },  // Sparse blue.
+  { 10000, "TWK 215 60 0" },  // Sparse blue.
   //{ 60000, "TWK 215 60 1" },  // Sparse white.
-  { 60000, "TWK 245 10 1" },  // Fast white.
-  { 15000, "CST 100 0 100 75 76 79 89" },  // A constellation.
+  { 10000, "TWK 245 10 1" },  // Fast white.
+  { 10000, "CST 100 0 100 75" },  // A constellation.
   { 1000,  "STATUS 75" },
   { 1000,  "STATUS 76" },
   { 1000,  "STATUS 79" },
@@ -119,7 +118,7 @@ HardwareSerial* master_serial = &Serial1;
 
 // We can afford a larger buffer on the mega.  Make it big enough to handle
 // error logging and debug packet printing from the master.
-#define BUFFLEN 256
+#define BUFFLEN 1024
 byte serialData[BUFFLEN];
 
 void MaybeReadMasterSerial() {
@@ -132,6 +131,8 @@ void MaybeReadMasterSerial() {
 // The master needs to be in MESSAGE_SERIAL mode for this.
 inline void SendMessageToMaster() {
   master_serial->println(message_timer_.current_message_string());
+  Serial.print("sent: ");  // FIXME debug scaffold
+  Serial.println(message_timer_.current_message_string());
 }
 
 void LedTestPattern() {

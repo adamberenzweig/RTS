@@ -101,8 +101,8 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
 
 bool ReadMessageStringFromSerial(HardwareSerial* serial,
                                  byte* buffer,
-                                 byte buflen) {
-  byte pos = 0;
+                                 int buflen) {
+  int pos = 0;
   // -1 to leave room to null-terminate.
   while (serial->available() && pos < buflen - 1) {
     byte data = serial->read();
@@ -114,7 +114,7 @@ bool ReadMessageStringFromSerial(HardwareSerial* serial,
     ++pos;
   }
   // Null-terminate.
-  buffer[pos] = NULL;
+  buffer[pos] = '\0';
   return pos > 0;
 }
 

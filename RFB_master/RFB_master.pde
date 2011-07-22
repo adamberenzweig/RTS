@@ -102,7 +102,7 @@ enum MESSAGE_MODES {
   // Read messages from the serial port.
   MESSAGE_SERIAL,
 };
-#define MESSAGE_MODE TEST_CYCLE
+#define MESSAGE_MODE MESSAGE_SERIAL
 
 // FIXME:  Getting short on SRAM again because of all the message
 // strings.  Put them in progmem.

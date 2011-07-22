@@ -81,10 +81,12 @@ int output_pins[NUM_OUTPUT_PINS] = {
 char buf[64];
 TimedMessage rts_messages[] = {
   { 60000, "TWK 215 60 0" },  // Sparse blue.
-  { 60000, "TWK 215 60 1" },  // Sparse white.
+  //{ 60000, "TWK 215 60 1" },  // Sparse white.
   { 60000, "TWK 245 10 1" },  // Fast white.
-  { 15000, "CST 100 0 100 2 4 6 8" },  // A constellation.
-  { 1000,  "STATUS 2 3 4 5 6 7 8" },  // Get status from some stars.
+  { 15000, "CST 100 0 100 75 76 79 89" },  // A constellation.
+  { 1000,  "STATUS 75" },
+  { 1000,  "STATUS 76" },
+  { 1000,  "STATUS 79" },
 };
 
 // States for ACTIVE, SLEEPING, STANDBY.
@@ -122,7 +124,7 @@ byte serialData[BUFFLEN];
 
 void MaybeReadMasterSerial() {
   if (ReadMessageStringFromSerial(master_serial, serialData, BUFFLEN)) {
-    Serial.print("Read from master: ");
+    Serial.println("Read from master: ");
     Serial.println((char*)serialData);
   }
 }
@@ -135,8 +137,6 @@ inline void SendMessageToMaster() {
 void LedTestPattern() {
   for (int i = ASTRONOMY_LED_0; i < NUM_OUTPUT_PINS; ++i) {
     int pin = output_pins[i];
-    DPrintByte("led pin", pin);
-    DPrintln();
     digitalWrite(pin, HIGH);
     delay(600);
     digitalWrite(pin, LOW);
@@ -161,10 +161,12 @@ void setup() {
   Serial.begin(9600);
   Serial.println(versionblurb);
 
-  master_serial->begin(9600);
+  master_serial->begin(9600);  // FIXME
+  Serial1.begin(9600);
+  Serial1.println("setup serial1"); // FIXME
 
-  LedTestPattern();
-  SwitchButtonLeds(HIGH);
+  //LedTestPattern();
+  //SwitchButtonLeds(HIGH);
 
   InitActiveCycle();
 }
@@ -179,7 +181,7 @@ bool is_hibernating_ = false;
 byte day_cycle_state_ = ACTIVE;
 
 void loop() {
-  LedTestPattern();  // FIXME for testing
+  //LedTestPattern();  // FIXME for testing
   unsigned long now = millis();
   if (day_cycle_state_ == ACTIVE) {
     //HandleButtons();
@@ -192,4 +194,5 @@ void loop() {
   MaybeReadMasterSerial();
 
   //HibernationControl(now);
+  delay(250); // FIXME
 } 

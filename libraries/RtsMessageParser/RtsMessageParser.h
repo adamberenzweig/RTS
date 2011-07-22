@@ -19,7 +19,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message);
 // Return true iff we read something.
 bool ReadMessageStringFromSerial(HardwareSerial* serial,
                                  byte* buffer,
-                                 byte buflen);
+                                 int buflen);
 
 // Read available data from the serial buffer up to a newline or buflen,
 // and parse into the RtsMessage.

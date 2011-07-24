@@ -120,12 +120,12 @@ TimedMessage test_messages[] = {
 //  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
   { 60000, "TWK 215 60 0"},  // Sparse blue twinkle.
+  /* I think we're busting RAM with all this.
   { 60000, "TWK 215 60 1"},  // Sparse white twinkle.
   { 60000, "TWK 245 10 1"},  // fast white twinkle
   { 1000,  "STATUS 68"},  // Tell each puck to report status.
   { 1000,  "STATUS 69"},
   { 1000,  "STATUS 70"},
-  /* I think we're busting RAM with all this.
   { 1000,  "STATUS 71"},
   { 1000,  "STATUS 72"},
   { 1000,  "STATUS 73"},
@@ -372,9 +372,7 @@ bool SolarTransition(unsigned long now, byte* solar_state) {
   return false;
 }
 
-#define RTS_STATUS_MESSAGE_SIZE 16
-static byte rxDataBuffer[CCx_PACKT_LEN];
-
+byte rxDataBuffer[CCx_PACKT_LEN];
 void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
   if (radio_mode_ != RECEIVE_MODE) {
     SetRadioMode(RECEIVE_MODE);
@@ -393,18 +391,17 @@ void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
       int result = receiveData(rxDataBuffer, &len,
                                &srcAddress, &destAddress,
                                &rssi, &lqi);
-      if (result == ERR) {
-        Serial.println("Bad packet"); // FIXME scaffold
-      } else {
+      if (result == OK && len == sizeof(StatusMessage)) {
         // Got a status packet.
         // FIXME: Record it.
-        Serial.println("Status packet:"); // FIXME scaffold
-        //DebugPrintPacketTx(rxDataBuffer, RTS_STATUS_MESSAGE_SIZE,
+        //DebugPrintPacketTx(rxDataBuffer, sizeof(StatusMessage),
         //                   srcAddress, destAddress);
         StatusMessage status;
         status.ParseFromBuffer(rxDataBuffer);
         status.LogToSerial();
         break;
+      } else {
+        Serial.println("Bad packet"); // FIXME scaffold
       }
     }
   }

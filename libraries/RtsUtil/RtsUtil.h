@@ -83,8 +83,7 @@ class SmoothedThreshold {
 
 class StatusMessage {
  public:
-  // sizof(StatusMessage) needs to be kept below the max packet size (63).
-  // TODO(madadam): Add lonely sleep, Lo V count.
+  // sizeof(StatusMessage) must be kept below the max packet size (63).
   byte my_id;
   unsigned long timestamp;
   unsigned long total_sleep_time;

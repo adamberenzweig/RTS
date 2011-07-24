@@ -97,7 +97,9 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
   return true;
 }
 
-#define SERIALCMDTERMINATOR 10  // <cr>
+// ASCII line terminators.
+#define NEWLINE 10
+#define CARRIAGE_RETURN 13
 
 bool ReadMessageStringFromSerial(HardwareSerial* serial,
                                  byte* buffer,
@@ -120,7 +122,7 @@ bool ReadMessageStringFromSerial(HardwareSerial* serial,
     num_times_waited = 0;
     byte data = serial->read();
     // Ganky! Arduino IDE doesn't send newline or cr. So use '$' also.
-    if (data == SERIALCMDTERMINATOR || data == '$') {
+    if (data == NEWLINE || data == CARRIAGE_RETURN || data == '$') {
       break;
     }
     buffer[pos] = data;

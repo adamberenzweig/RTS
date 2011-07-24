@@ -18,7 +18,7 @@ Date: September 16, 2010
 #include <Twinkler.h>
 
 // Puck-Specific Configuration
-#define RTS_ID 68           // The Unique ID of this RFBee.
+#define RTS_ID 2           // The Unique ID of this RFBee.
 
 // Voltage tuning factor.
 // A constant used to compute the puck's voltage from the raw values read
@@ -467,22 +467,6 @@ byte waitAndReceiveRFBeeData(byte** rxData) {
   }
   
   return good_packet;
-}
-
-int IsTimerExpired(unsigned long now,
-                   unsigned long* last_time,
-                   unsigned long interval_ms) {
-  if (now < *last_time) {
-    // time overflow, happens every 50 days
-    *last_time = 0;
-  }
-  // Don't underflow the subtraction.
-  if (now >= interval_ms &&
-      *last_time < now - interval_ms) {
-    *last_time = now;
-    return 1;
-  }
-  return 0;
 }
 
 inline float ScaleVoltage(int raw_value) {

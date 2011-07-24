@@ -83,7 +83,7 @@ class SmoothedThreshold {
 
 class StatusMessage {
  public:
-  // sizof(StatusMessage) needs to be kept below the max packet size.
+  // sizof(StatusMessage) needs to be kept below the max packet size (63).
   // TODO(madadam): Add lonely sleep, Lo V count.
   byte my_id;
   unsigned long timestamp;
@@ -91,6 +91,8 @@ class StatusMessage {
   float smoothed_voltage;
   int solar_reading;
   unsigned int num_bad_rx;
+  unsigned int num_lonely_sleep;
+  unsigned int num_low_voltage_sleep;
   byte last_state;
 
   void LogToSerial() {
@@ -102,6 +104,10 @@ class StatusMessage {
     Serial.print(total_sleep_time, DEC);
     Serial.print(whitespace);
     Serial.print(num_bad_rx, DEC);
+    Serial.print(whitespace);
+    Serial.print(num_lonely_sleep, DEC);
+    Serial.print(whitespace);
+    Serial.print(num_low_voltage_sleep, DEC);
     Serial.print(whitespace);
     Serial.print(solar_reading, DEC);
     Serial.print(whitespace);

@@ -131,8 +131,8 @@ void MaybeReadMasterSerial() {
 // The master needs to be in MESSAGE_SERIAL mode for this.
 inline void SendMessageToMaster() {
   master_serial->println(message_timer_.current_message_string());
-  Serial.print("sent: ");  // FIXME debug scaffold
-  Serial.println(message_timer_.current_message_string());
+  // Serial.print("sent: ");  // FIXME debug scaffold
+  // Serial.println(message_timer_.current_message_string());
 }
 
 void LedTestPattern() {

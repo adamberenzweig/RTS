@@ -309,9 +309,9 @@ inline void SetMessage(const char* message) {
 // option, message with no timeout, and have this be a special case.
 void TryReadMessageFromSerial() {
   if (ReadMessageStringFromSerial(&Serial, serialData, BUFFLEN)) {
+    Serial.print("ack ");
+    Serial.println((char*)serialData);
     message_timer_.SetMessageFromString((const char*)serialData);
-    DPrintInt("Read cmd", message_timer_.rts_message().command());
-    DPrintln();
   }
 }
 
@@ -383,7 +383,6 @@ void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
     // consume more than one to prevent RX buffer overflow?  Or we can shut
     // down the receiver after getting a valid packet.
     if (digitalRead(GDO0) == HIGH) {
-      Serial.println("rx hit");
       byte len;
       byte srcAddress, destAddress;
       byte rssi;
@@ -392,6 +391,7 @@ void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
                                &srcAddress, &destAddress,
                                &rssi, &lqi);
       if (result == OK && len == sizeof(StatusMessage)) {
+        Serial.println("Status:");
         // Got a status packet.
         // FIXME: Record it.
         //DebugPrintPacketTx(rxDataBuffer, sizeof(StatusMessage),

@@ -169,6 +169,7 @@ void setup() {
   //LedTestPattern();
   //SwitchButtonLeds(HIGH);
 
+  delay(1000);
   InitActiveCycle();
 }
 

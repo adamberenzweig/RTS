@@ -102,9 +102,22 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
 bool ReadMessageStringFromSerial(HardwareSerial* serial,
                                  byte* buffer,
                                  int buflen) {
+  if (!serial->available()) {
+    return false;
+  }
   int pos = 0;
+  byte num_times_waited = 0;
   // -1 to leave room to null-terminate.
-  while (serial->available() && pos < buflen - 1) {
+  while (num_times_waited < 100 && pos < buflen - 1) {
+    if (!serial->available()) {
+      // Prevent a bug where we read data from the serial buffer faster than
+      // it comes in, which leads to a fragmented message.  Just wait a bit to
+      // make sure no more data is coming in.
+      delay(1);
+      ++num_times_waited;
+      continue;
+    }
+    num_times_waited = 0;
     byte data = serial->read();
     // Ganky! Arduino IDE doesn't send newline or cr. So use '$' also.
     if (data == SERIALCMDTERMINATOR || data == '$') {

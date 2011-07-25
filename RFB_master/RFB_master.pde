@@ -37,7 +37,6 @@ char versionblurb[] = "v.1.0 - MASTER";
 /************************* Includes ******************/
 #include "debug.h"
 #include "globals.h"
-#include "Config.h"
 #include "CCx.h"
 #include "rfBeeSerial.h"
 /*****************************************************/
@@ -92,10 +91,6 @@ byte day_cycle_state_ = ACTIVE;
 
 // MESSAGE_MODE controls how we get messages before sending them out.
 enum MESSAGE_MODES {
-  // Listen for raw message bytes on the incoming serial port, and transmit
-  // once 32 bytes have been received.
-  RAW_SERIAL,
-
   // Cycle through the test_messages.
   TEST_CYCLE,
 
@@ -209,21 +204,11 @@ void setup(){
   pinMode(SOLAR_PIN, INPUT);
   pinMode(VOLTAGE_READ_PIN, INPUT);
   
-  Config.set(CONFIG_MY_ADDR, RTS_ID);
-  setMyAddress();
-  //==========================
-
   if (RTS_MESSAGE_SIZE > CCx_PACKT_LEN) {
     DPrintln("Error: RTS_MESSAGE_SIZE too long.");
   }
   
-  if (Config.initialized() != OK) 
-  {
-    Serial.begin(9600);
-    Serial.println("Initializing config"); 
-    Config.reset();
-  }
-  setUartBaudRate();
+  Serial.begin(9600);
 
   rfBeeInit();
   InitSleepControl();
@@ -279,19 +264,15 @@ void loop(){
     CheckForDayCycleTransition(now);
   }
 
-  if (MESSAGE_MODE == RAW_SERIAL) {
-    readSerialData();
-  } else {
-    if (day_cycle_state_ == ACTIVE) {
-      if (MESSAGE_MODE == TEST_CYCLE) {
-        message_timer_.MaybeChangeMessage(now);
-      } else if (MESSAGE_MODE == MESSAGE_SERIAL) {
-        TryReadMessageFromSerial();
-      }
+  if (day_cycle_state_ == ACTIVE) {
+    if (MESSAGE_MODE == TEST_CYCLE) {
+      message_timer_.MaybeChangeMessage(now);
+    } else if (MESSAGE_MODE == MESSAGE_SERIAL) {
+      TryReadMessageFromSerial();
     }
-    if (day_cycle_state_ != STANDBY) {
-      MaybeSendMessage(now, PACKET_PERIOD_MS);
-    }
+  }
+  if (day_cycle_state_ != STANDBY) {
+    MaybeSendMessage(now, PACKET_PERIOD_MS);
   }
   if (should_listen_for_status_response_) {
     // 100 == kStatusListenTimeMs.
@@ -305,8 +286,6 @@ inline void SetMessage(const char* message) {
   message_timer_.SetMessageFromString(message);
 }
 
-// FIXME: change to read timed message from serial?  or also have another
-// option, message with no timeout, and have this be a special case.
 void TryReadMessageFromSerial() {
   if (ReadMessageStringFromSerial(&Serial, serialData, BUFFLEN)) {
     Serial.print("ack ");
@@ -325,8 +304,8 @@ void MaybeSendMessage(unsigned long now, int period_ms) {
     should_listen_for_status_response_ =
       (message_timer_.rts_message().command() == RTS_SEND_STATUS);
     
-    // FIXME: In prod, attached to the Mega, there won't be any LEDs, right?
-    // Remove this so we don't confuse the mega by writing to pins. 
+    // In prod, attached to the Mega, there won't be any LEDs, but it's probably
+    // safe to do this anyway since the pins won't be connected to anything.
     DFlashLeds(WHITE_PIN);
   }
 }
@@ -337,7 +316,6 @@ void SendOneMessage(byte* message_data) {
        tx_counter % RADIO_RESET_INTERVAL_PACKETS == 0)) {
     SetRadioMode(TRANSMIT_MODE);
   }
-  // FIXME: message_timer_.message_data()
   transmitData(message_data, RTS_MESSAGE_SIZE, srcAddress, destAddress);
   // NOTE: This slows things down a lot!  If you want fast performance for
   // Star Wars mode, don't do this here:
@@ -436,15 +414,19 @@ void RunStartupSequence() {
 }
 
 inline void SetRadioMode(byte mode) {
-  radio_mode_ = mode;
   setRFBeeModeWith(mode);
+  radio_mode_ = mode;
 }
 
+#define ADDRESS_CHECK 0  // 0: no check, 1: check, 2: check w/ broadcast (0)
 void rfBeeInit(){
-  DEBUGPRINT()
-  
   CCx.PowerOnStartUp();
-  setCCxConfig();
+  byte config_id = 0;
+  byte config_pa_id = 0;
+  CCx.Setup(config_id);
+  CCx.Write(CCx_ADDR, RTS_ID);
+  CCx.Write(CCx_PKTCTRL1, ADDRESS_CHECK | 0x04);
+  CCx.setPA(config_id, config_pa_id);
   serialMode=SERIALDATAMODE;
   
   //GD00 is located on pin 2, which results in INT 0

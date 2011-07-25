@@ -23,91 +23,7 @@
 
 #include "rfBeeSerial.h"
 
-//
-byte getNumParamData(int *result, int size){
-  DEBUGPRINT()
-  // try to read a number
-  byte c;
-  int value=0;
-  boolean valid=false;
-  int pos=4; // we start to read at pos 5 as 0-1 = AT and 2-3 = CMD
-  
-  if (serialData[pos] == SERIALCMDTERMINATOR )  // no data was available
-    return NOTHING;
-    
-  while (size-- > 0){
-    c=serialData[pos++];
-    if ( c== SERIALCMDTERMINATOR)  // no more data available 
-      break;
-    if ((c < '0') || (c > '9'))     // illegal char
-      return ERR;                     
-    // got a digit
-    valid=true;
-    value=(value*10)+ (c -'0');
-  } 
-  if (valid){
-    *result=value;
-    return OK;
-  }
-  return ERR;  
-}
-
-// simple standardized setup for commands that only modify config
-int modifyConfig(byte configLabel, byte paramSize, byte paramMaxValue){
-  DEBUGPRINT()
-  int param;
-  
-  byte result=getNumParamData(&param ,paramSize);
-  if (result == OK){
-    if (param <= paramMaxValue){
-      Config.set(configLabel,param);
-      return MODIFIED;
-    }
-  }
-  if (result == NOTHING){
-    // return current setting
-    Serial.println(Config.get(configLabel),DEC); 
-    return(OK); 
-  }
-  return ERR;
-}
-
-int processSerialCmd(byte size){
-  DEBUGPRINT()  
-  int result=MODIFIED;
-  
-  byte configItem;   // the ID used in the EEPROM
-  byte paramDigits;  // how many digits for the parameter
-  byte maxValue;     // maximum value of the parameter
-  byte postProcess;  // do we need to call the function to perform extra actions on change
-  AT_Command_Function_t function; // the function which does the real work on change
- 
-  // read the AT
-  if (strncasecmp("AT",(char *)serialData,2)==0){
-    // read the command
-    for(int i=0;i<=sizeof(atCommands)/sizeof(AT_Command_t);i++){
-      // do we have a known command
-      if (strncasecmp_P((char *) serialData+2 , (PGM_P) pgm_read_word(&(atCommands[i].name)), 2)==0){
-        // get the data from PROGMEM
-        configItem=pgm_read_byte(&(atCommands[i].configItem));
-        paramDigits=pgm_read_byte(&(atCommands[i].paramDigits));
-        maxValue=pgm_read_byte(&(atCommands[i].maxValue));
-        postProcess=pgm_read_byte(&(atCommands[i].postProcess));
-        function= (AT_Command_Function_t) pgm_read_word(&(atCommands[i].function));
-        if (paramDigits > 0)
-          result=modifyConfig(configItem, paramDigits, maxValue);
-        if (result == MODIFIED){
-          result=OK;  // config only commands always return OK
-          if (postProcess==true)
-             result=function();  // call the command function
-        }
-        return(result);  // return the result of the execution of the function linked to the command
-      }
-    }
-  }
-  return ERR;
-}
-
+/*
 void readSerialCmd(){
   DEBUGPRINT()  
   int result;
@@ -137,7 +53,9 @@ void readSerialCmd(){
         Serial.println("error");
   }
 }
+*/
 
+/*
 void readSerialData(){
   DEBUGPRINT()
   byte len;
@@ -193,6 +111,7 @@ void readSerialData(){
     pos=0; // serial databuffer is free again.
   }
 }
+*/
 
 // write a text label from progmem, uses less bytes than individual Serial.println()
 //void writeSerialLabel(byte i){
@@ -210,9 +129,8 @@ void writeSerialError(){
   Serial.println(buffer);
 }
 
-
-
 // read data from CCx and write it to Serial based on the selected output format
+/*
 void writeSerialData(){
   DEBUGPRINT()
   byte rxData[CCx_PACKT_LEN];
@@ -274,79 +192,7 @@ void writeSerialData(){
   }
 }
 
-
-int setMyAddress(){
-  DEBUGPRINT();  
-  CCx.Write(CCx_ADDR,Config.get(CONFIG_MY_ADDR)); 
-  return OK;
-} 
-
-int setAddressCheck(){
-  DEBUGPRINT();
-  CCx.Write(CCx_PKTCTRL1, Config.get(CONFIG_ADDR_CHECK) | 0x04);
-  return OK;
-} 
- 
-int setPowerAmplifier(){
-  DEBUGPRINT();
-  CCx.setPA(Config.get(CONFIG_CONFIG_ID), Config.get(CONFIG_PAINDEX));
-  return OK;
-}
-
-int changeUartBaudRate(){
-  DEBUGPRINT()
-  Serial.println("ok");
-  Serial.flush();
-  delay(1);  
-  setUartBaudRate();
-}
-
-int setUartBaudRate(){  
-  Serial.begin(pgm_read_dword(&baudRateTable[Config.get(CONFIG_BDINDEX)]));
-  return NOTHING;  // we already sent an ok.
-}
-
-int showFirmwareVersion(){
-  DEBUGPRINT()
-  Serial.println(((float) FIRMWAREVERSION)/10,1);
-  return OK;
-}
-
-int showHardwareVersion(){
-  DEBUGPRINT()
-  Serial.println(((float)Config.get(CONFIG_HW_VERSION))/10,1);
-  return OK;
-}
-
-int resetConfig(){
-  DEBUGPRINT()
-  Config.reset();
-  return OK;
-}
-
-int setCCxConfig(){
-  DEBUGPRINT()
-  // load the appropriate config table
-  byte cfg=Config.get(CONFIG_CONFIG_ID);
-  CCx.Setup(cfg);  
-  //CCx.ReadSetup();
-  // and restore the config settings
-  setMyAddress();
-  setAddressCheck();
-  setPowerAmplifier();
-  setRFBeeMode();
-  return OK;
-}
-
-int setSerialDataMode(){  
-  DEBUGPRINT()
-  serialMode = SERIALDATAMODE;
-  return OK;
-}
-
-int setRFBeeMode(){
-  return setRFBeeModeWith(Config.get(CONFIG_RFBEE_MODE));
-}
+*/
 
 int setRFBeeModeWith(byte mode) {
    DEBUGPRINT()
@@ -361,6 +207,9 @@ int setRFBeeModeWith(byte mode) {
     delay(1);
     CCx.Write(CCx_MCSM1 ,   0x00 );//TXOFF_MODE->stay in IDLE
     CCx.Strobe(CCx_SFTX);
+    // FIXME.  This remains mysterious.  On the slave, it seems I need to strobe
+    // into TX mode here for things to work properly.  On the master, that
+    // seemed to mess things up.
     //CCx.Strobe(CCx_STX);  FIXME
     break;
   case RECEIVE_MODE:

@@ -240,7 +240,7 @@ void InitLedStates() {
   last_led_control_time = millis();
 }
 
-inline void setRadioMode(byte mode) {
+inline void SetRadioMode(byte mode) {
   setRFBeeModeWith(mode);
   radio_mode_ = mode;
 }
@@ -257,7 +257,7 @@ void rfBeeInit(){
   // GD00 is located on pin 2, which results in INT 0:
   attachInterrupt(0, ISRVreceiveData, RISING);
   pinMode(GDO0,INPUT); // used for polling the RF received data
-  setRadioMode(RECEIVE_MODE);
+  SetRadioMode(RECEIVE_MODE);
 }
 
 // handle interrupt
@@ -346,7 +346,7 @@ void MaybeRxMessage(unsigned long now) {
   if (is_radio_sleeping_ &&
       IsTimerExpired(now, &last_radio_sleep_start, kRadioSleepTimeMs)) {
     // DPrintln("radio sleep off");
-    setRadioMode(RECEIVE_MODE);
+    SetRadioMode(RECEIVE_MODE);
     is_radio_sleeping_ = 0;
     // Reset the lonely-sleep timer, we can't have heard anything while
     // the radio was sleeping.
@@ -389,7 +389,7 @@ void MaybeRxMessage(unsigned long now) {
 
   if (did_rx_good_packet && kRadioSleepTimeMs && !at_attention_) {
     last_radio_sleep_start = last_rx_ms;
-    setRadioMode(SLEEP_MODE);
+    SetRadioMode(SLEEP_MODE);
     is_radio_sleeping_ = 1;
     // DPrintln("radio sleep on");
   }
@@ -508,7 +508,7 @@ void ReportStatus(unsigned long now) {
 void TransmitStatus() {
   byte old_radio_mode = radio_mode_;
   if (radio_mode_ != TRANSMIT_MODE) {
-    setRadioMode(TRANSMIT_MODE);
+    SetRadioMode(TRANSMIT_MODE);
   }
 
   status_.WriteToBuffer(rxDataBuffer);
@@ -517,7 +517,7 @@ void TransmitStatus() {
 
   // Put the radio back the way we found it.
   if (old_radio_mode != TRANSMIT_MODE) {
-    setRadioMode(old_radio_mode);
+    SetRadioMode(old_radio_mode);
   } 
 }
 
@@ -560,7 +560,7 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   
   // Go to sleep.  This call won't return until we're woken up.
   unsigned long sleep_time = 1000UL * sleep_time_sec;
-  setRadioMode(SLEEP_MODE);
+  SetRadioMode(SLEEP_MODE);
   status_.total_sleep_time += sleepWithTimeout(sleep_time);
 
   // Just for debugging. don't do this in prod.
@@ -569,7 +569,7 @@ void FullSleepFor(unsigned int sleep_time_sec) {
   // we're in here.
   // RunStartupSequence();
   
-  setRadioMode(RECEIVE_MODE);
+  SetRadioMode(RECEIVE_MODE);
   is_radio_sleeping_ = 0;
   // Reset the sleep-if-lonely clock.
   last_rx_ms = millis();

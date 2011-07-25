@@ -82,10 +82,9 @@ TimedMessage rts_messages[] = {
   { 10000, "TWK 215 60 0" },  // Sparse blue.
   //{ 60000, "TWK 215 60 1" },  // Sparse white.
   { 10000, "TWK 245 10 1" },  // Fast white.
-  { 10000, "CST 100 0 100 75" },  // A constellation.
-  { 1000,  "STATUS 75" },
-  { 1000,  "STATUS 76" },
-  { 1000,  "STATUS 79" },
+  { 10000, "CST 200 0 200 50 51 52" },  // A constellation.
+  { 10000, "CST 200 200 100 2" },  // A constellation.
+  { 5000,  "STATUS 2" },
 };
 
 // States for ACTIVE, SLEEPING, STANDBY.
@@ -123,7 +122,7 @@ byte serialData[BUFFLEN];
 
 void MaybeReadMasterSerial() {
   if (ReadMessageStringFromSerial(master_serial, serialData, BUFFLEN)) {
-    Serial.println("Read from master: ");
+    Serial.print("M ");
     Serial.println((char*)serialData);
   }
 }

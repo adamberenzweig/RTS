@@ -44,6 +44,8 @@ void RtsMessage::initWrite() {
     message_[i] = 0;
   }
   write_protect_ = 0;
+  num_ids_ = 0;
+  command_ = 0;
 }
 
 bool RtsMessage::writeByteAt(int index, byte value) {

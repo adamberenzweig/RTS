@@ -51,10 +51,6 @@ int CommandFromName(const char* name) {
 }
 
 bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
-  // Printing here slows down star wars mode.
-  // DPrint(input);
-  // DPrintln();
-
   int tok_num = 0;
   byte command = NUM_RTS_COMMANDS;
   rts_message->initWrite();

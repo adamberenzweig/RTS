@@ -126,7 +126,12 @@ byte RtsMessage::getMyState(byte my_id) const {
   }
 
   if (!message_for_me) {
-    return RTS_IGNORE;
+    if (command == RTS_CONSTELLATION) {
+      // When a constellation is on, the other stars should go dark.
+      return RTS_OFF;
+    } else {
+      return RTS_IGNORE;
+    }
   }
   return command;
 }

@@ -11,8 +11,10 @@ char* versionblurb = "v.1.0 - Control Box";
 #include <RtsMessageParser.h>
 #include <PrintUtil.h>
 #include <RtsUtil.h>
+#include <Twinkler.h>
 #include "HardwareSerial.h"
 
+/*
 // ----------------- Button Inputs -----------------
 int asm_button_pin =  51;       // The pin from the Astronomy Button
 int asl_button_pin = 52;        // The pin from the Astrology Button
@@ -77,8 +79,22 @@ int output_pins[NUM_OUTPUT_PINS] = {
   30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, // Astronomy LEDs
   31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53,   // Astrology LEDs
 };
+*/
 
-TimedMessage rts_messages[] = {
+#define NUM_BUTTONS 3
+
+// FIXME  Correct pin numbers.
+int button_signal_pins[NUM_BUTTONS] = {
+  24, 22, 53,
+  //30, 32, 34
+};
+
+// FIXME  Correct pin numbers.
+int button_led_pins[NUM_BUTTONS] = {
+  23, 26, 27, 
+};
+
+TimedMessage twinkle_messages[] = {
   { 10000, "TWK 215 60 0" },  // Sparse blue.
   //{ 60000, "TWK 215 60 1" },  // Sparse white.
   { 10000, "TWK 245 10 1" },  // Fast white.
@@ -87,22 +103,43 @@ TimedMessage rts_messages[] = {
   { 5000,  "STATUS 2" },
 };
 
-// States for ACTIVE, SLEEPING, STANDBY.
-// Each state has a TimedMessage array associated with it.  Pass that array to
-// the MessageTimer?  Or to a higher level class that keeps the array, knows the
-// length, which is the next message, etc.
+#define NUM_CONSTELLATIONS 2
+TimedMessage constellation_sequence_0[] = 
+{
+  { 0, "CST 200 0 200 50 51 52" },
+};
+TimedMessage constellation_sequence_1[] = {
+  { 0, "CST 200 0 200 68 69 70 71" },
+};
+// If you change the number of sequences, update NUM_CONSTELLATIONS.
 
-// What happens in response to a button push?  Go to another state?
-// Or keep a separate TimedMessage array for each state.  Now we need timed
-// transitions between these states.  Is that overkill?
+struct ConstellationSequence {
+  byte length;
+  TimedMessage* sequence;
+};
 
-// State machine for button pushes and day cycle transitions.
+ConstellationSequence constellation_sequences[NUM_CONSTELLATIONS];
 
-// Button push:  LED fades etc. Each button has its own state machine.
+// FIXME. Oh I hate this. But multidimensional arrays can't have unspecified
+// bound sizes except for the first dimension, so a normal initializer doesn't
+// work.
+void InitConstellationSequenceArray() {
+  constellation_sequences[0].length =
+      sizeof(constellation_sequence_0) / sizeof(TimedMessage);
+  constellation_sequences[0].sequence = constellation_sequence_0;
+
+  constellation_sequences[1].length =
+      sizeof(constellation_sequence_1) / sizeof(TimedMessage);
+  constellation_sequences[1].sequence = constellation_sequence_1;
+};
+
+TimedMessage bedtime_sequence[] = {
+  { 4000, "OFF" },
+  { 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
+};
 
 // How would star wars work here? I don't think the MessageTimer class will
 // support it.  Probably move the star wars code from the Master into here.
-
 
 enum DAY_CYCLE_STATE {
   ACTIVE,
@@ -135,47 +172,275 @@ inline void SendMessageToMaster() {
 }
 
 void LedTestPattern() {
-  for (int i = ASTRONOMY_LED_0; i < NUM_OUTPUT_PINS; ++i) {
-    int pin = output_pins[i];
+  for (int i = 0; i < NUM_BUTTONS; ++i) {
+    int pin = button_led_pins[i];
     digitalWrite(pin, HIGH);
     delay(600);
     digitalWrite(pin, LOW);
   }
 }
 
-void SwitchButtonLeds(byte value) {
-  digitalWrite(output_pins[BUTTON_1_LED], value);
-  digitalWrite(output_pins[BUTTON_2_LED], value);
-  digitalWrite(output_pins[BUTTON_3_LED], value);
-}
-
 void setup() {
-  for (int i = 0; i < NUM_INPUT_PINS; ++i) {
-    int pin = input_pins[i];
-    pinMode(pin, INPUT);
+  for (int i = 0; i < NUM_BUTTONS; ++i) {
+    pinMode(button_signal_pins[i], INPUT);
+    pinMode(button_led_pins[i], OUTPUT);
   }
-  for (int i = 0; i < NUM_OUTPUT_PINS; ++i) {
-    int pin = output_pins[i];
-    pinMode(pin, OUTPUT);
-  }
+
   Serial.begin(9600);
   Serial.println(versionblurb);
 
-  master_serial->begin(9600);  // FIXME
   Serial1.begin(9600);
   Serial1.println("setup serial1"); // FIXME
 
   //LedTestPattern();
-  //SwitchButtonLeds(HIGH);
+
+  InitConstellationSequenceArray();
 
   delay(1000);
   InitActiveCycle();
 }
 
 void InitActiveCycle() {
-  byte num_msgs = (byte)(sizeof(rts_messages)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(rts_messages, num_msgs);
+  byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(twinkle_messages, num_msgs);
 }
+
+// A twinkler to fade out the button LEDs when a different button is pushed.
+class ButtonFadeTwinkler : public Twinkler {
+ public:
+  ButtonFadeTwinkler() {
+    // Start lit up.
+    fade_direction_ = 0;
+    duration_ = 0;
+    // Use BLUE for the button LED.  Doesn't really matter which, we just need
+    // to pick one since the button only has one LED (as opposed to the puck,
+    // which is why the Twinkler supports two).
+    use_led_[BLUE] = 1;
+    use_led_[WHITE] = 0;
+    SetSteadyState(HIGH);
+  }
+
+  virtual char* Name() const { return "ButtonTwinkler"; }
+
+  // Turn on or off.
+  void SetSteadyState(int value) {
+    fade_direction_ = 0;
+    duration_ = 0;
+    fade_increment_ = 0;
+    value_[BLUE] = float(value);
+  }
+
+#define FADE_OUT -1
+#define FADE_IN 1
+  void StartFade(float duration_sec, int direction) {
+    fade_direction_ = direction;
+    int intervals_per_sec = 1000 / FADE_INTERVAL_MS;
+    duration_ = duration_sec * intervals_per_sec;
+    brightness_ = MAX_FADE_VALUE;
+    fade_increment_ = (float)brightness_ / duration_;
+    if (direction == FADE_OUT) {
+      value_[BLUE] = MAX_FADE_VALUE;
+    } else {
+      value_[BLUE] = MIN_FADE_VALUE;
+    }
+  }
+
+  virtual void Update() {
+    if (duration_ == 0) {
+      return;
+    }
+    --duration_;
+    IncrementValues(false, false);  // Don't reverse direction.
+  }
+};
+
+#define BUTTON_LED_FADE_TIME_SEC 1.0
+
+enum ButtonPanelState {
+  // FIXME Change these to the modes?  TWINKLE, CONSTELLATION, etc?
+  BP_ON,
+  BP_OFF,
+  BP_ONE_SELECTED,
+  NUM_BUTTON_PANEL_STATES
+};
+
+class Button {
+ public:
+  Button() {}
+
+  void SetPins(byte signal_pin, byte led_pin) {
+    signal_pin_ = signal_pin;
+    led_pin_ = led_pin;
+  }
+
+  int PollSignal() {
+    return digitalRead(signal_pin_);
+  }
+
+  // Call this every FADE_INTERVAL_MS.
+  void Update(unsigned long now) {
+    if (twinkler_.shouldWrite(BLUE)) {
+      analogWrite(led_pin_, twinkler_.Value(BLUE));
+    }
+    twinkler_.Update();
+  }
+
+  void TransitionToState(byte state, bool is_selected) {
+    if (state == BP_ON) {
+      if (current_state_ == BP_ONE_SELECTED) {
+        twinkler_.StartFade(BUTTON_LED_FADE_TIME_SEC, FADE_IN);
+      } else {
+        // Or we could always fade in.
+        twinkler_.SetSteadyState(MAX_FADE_VALUE);
+      }
+    } else if (state == BP_OFF) {
+      twinkler_.SetSteadyState(MIN_FADE_VALUE);
+    } else if (state == BP_ONE_SELECTED) {
+      if (is_selected) {
+        twinkler_.SetSteadyState(MAX_FADE_VALUE);
+      } else {
+        twinkler_.StartFade(BUTTON_LED_FADE_TIME_SEC, FADE_OUT);
+      }
+    }
+    current_state_ = state;
+  }
+
+ private:
+  byte signal_pin_;
+  byte led_pin_;
+  byte current_state_;
+  ButtonFadeTwinkler twinkler_;
+};
+
+enum StarMode {
+  MODE_TWINKLE,
+  MODE_CONSTELLATION,
+};
+
+// Keep the array of buttons?
+class ButtonController {
+ public:
+  ButtonController() {
+    last_led_control_time_ = 0;
+    Reset();
+
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+      buttons_[i].SetPins(button_signal_pins[i], button_led_pins[i]);
+    }
+  }
+
+  void Reset() {
+    selected_button_ = -1;
+  }
+
+  void MaybeRunLedControl(unsigned long now) {
+    if (IsTimerExpired(now, &last_led_control_time_, FADE_INTERVAL_MS)) {
+      for (int i = 0; i < NUM_BUTTONS; ++i) {
+        buttons_[i].Update(now);
+      }
+    }
+  }
+
+  int selected_button() { return selected_button_; }
+
+  // Clears the selected button and then polls the button signals.  Returns
+  // true iff a button is currently signalled, and sets selected_button.
+  bool PollButtons();
+
+  // TODO(madadam): Configurable state transition diagram.
+  void TransitionToState(byte new_state) {
+    current_state_ = new_state;
+    if (current_state_ != BP_ONE_SELECTED) {
+      // Clear the selection.
+      selected_button_ = -1;
+    }
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+      bool is_selected = (i == selected_button_);
+      buttons_[i].TransitionToState(current_state_, is_selected);
+    }
+  }
+
+private:
+  unsigned long last_led_control_time_;
+  Button buttons_[NUM_BUTTONS];
+  byte current_state_;
+  int selected_button_;
+};
+
+bool ButtonController::PollButtons() {
+  byte button_state[NUM_BUTTONS];
+  selected_button_ = -1;
+  for (int i = 0; i < NUM_BUTTONS; ++i) {
+    button_state[i] = buttons_[i].PollSignal();
+    if (button_state[i] == HIGH) {
+      // For now, we only handle single button presses at a time.
+      selected_button_ = i;
+    }
+  }
+  return selected_button_ >= 0;
+}
+
+#define CONSTELLATION_TIME_SEC 10
+
+class ModeController {
+ public:
+  ModeController() {}
+
+  void ModeControl(unsigned long now) {
+    if (star_mode_ == MODE_CONSTELLATION) {
+      MaybeChangeMode(now);
+    }
+
+    if (star_mode_ == MODE_TWINKLE) {
+      if (button_controller_.PollButtons()) {
+        // Start mode timer and transition.
+        mode_timer_start_ = now;
+        star_mode_ = MODE_CONSTELLATION;
+        button_controller_.TransitionToState(BP_ONE_SELECTED);
+
+        // Start the selected constellation mode message timer.
+        int selected_button = button_controller_.selected_button();
+        byte num_msgs = constellation_sequences[selected_button].length;
+        Serial.print("Transition to constellation ");
+        Serial.print(selected_button, DEC);
+        Serial.print(" with size ");
+        Serial.println(num_msgs, DEC);
+        message_timer_.StartWithMessages(
+            constellation_sequences[selected_button].sequence, num_msgs);
+      }
+    }
+
+    button_controller_.MaybeRunLedControl(now);
+  }
+
+  bool MaybeChangeMode(unsigned long now) {
+    if (mode_timer_start_ > 0 &&
+        IsTimerExpired(now,
+                       &mode_timer_start_,
+                       1000 * CONSTELLATION_TIME_SEC)) {
+      if (star_mode_ == MODE_CONSTELLATION) {
+        star_mode_ = MODE_TWINKLE;
+        button_controller_.TransitionToState(BP_ON);
+        Serial.println("Constellation timer expired.");  // FIXME
+
+        // Set the master back to regular twinkle pattern.
+        byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
+        message_timer_.StartWithMessages(twinkle_messages, num_msgs);
+      }
+      // Stop timer.
+      mode_timer_start_ = 0;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  byte star_mode_;
+  unsigned long mode_timer_start_;
+  ButtonController button_controller_;
+};
+
+ModeController mode_controller_;
 
 // FIXME: use states like the master test.
 bool is_hibernating_ = false;
@@ -185,8 +450,7 @@ void loop() {
   //LedTestPattern();  // FIXME for testing
   unsigned long now = millis();
   if (day_cycle_state_ == ACTIVE) {
-    //HandleButtons();
-    //UpdateLeds();
+    mode_controller_.ModeControl(now);
     if (message_timer_.MaybeChangeMessage(now)) {
       SendMessageToMaster();
     }
@@ -195,5 +459,5 @@ void loop() {
   MaybeReadMasterSerial();
 
   //HibernationControl(now);
-  delay(250); // FIXME
+  delay(10); // FIXME
 } 

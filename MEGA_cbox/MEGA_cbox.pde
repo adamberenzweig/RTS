@@ -83,33 +83,33 @@ int output_pins[NUM_OUTPUT_PINS] = {
 
 #define NUM_BUTTONS 3
 
-// FIXME  Correct pin numbers.
 int button_signal_pins[NUM_BUTTONS] = {
-  24, 22, 53,
-  //30, 32, 34
+  22, 23, 24
 };
 
-// FIXME  Correct pin numbers.
 int button_led_pins[NUM_BUTTONS] = {
-  23, 26, 27, 
+  8, 9, 10,  // PWM pins
 };
 
 TimedMessage twinkle_messages[] = {
-  { 10000, "TWK 215 60 0" },  // Sparse blue.
-  //{ 60000, "TWK 215 60 1" },  // Sparse white.
-  { 10000, "TWK 245 10 1" },  // Fast white.
-  { 10000, "CST 200 0 200 50 51 52" },  // A constellation.
-  { 10000, "CST 200 200 100 2" },  // A constellation.
-  { 5000,  "STATUS 2" },
+  //{ 10000, "TWK 215 60 0" },  // Sparse blue.
+  //{ 10000, "TWK 215 60 1" },  // Sparse white.
+  { 30000, "TWK 245 10 0" },  // Fast blue.
+  //{ 10000, "CST 200 0 200 50 51 52" },  // A constellation.
+  //{ 10000, "CST 200 200 100 2" },  // A constellation.
+  { 5000,  "STATUS 24" },
 };
 
-#define NUM_CONSTELLATIONS 2
+#define NUM_CONSTELLATIONS 3
 TimedMessage constellation_sequence_0[] = 
 {
-  { 0, "CST 200 0 200 50 51 52" },
+  { 0, "CST 200 0 200 24" },
 };
 TimedMessage constellation_sequence_1[] = {
-  { 0, "CST 200 0 200 68 69 70 71" },
+  { 0, "CST 200 0 200 25" },
+};
+TimedMessage constellation_sequence_2[] = {
+  { 0, "CST 200 0 200 25 26" },
 };
 // If you change the number of sequences, update NUM_CONSTELLATIONS.
 
@@ -120,9 +120,8 @@ struct ConstellationSequence {
 
 ConstellationSequence constellation_sequences[NUM_CONSTELLATIONS];
 
-// FIXME. Oh I hate this. But multidimensional arrays can't have unspecified
-// bound sizes except for the first dimension, so a normal initializer doesn't
-// work.
+// Awful. But multidimensional arrays can't have unspecified bound sizes
+// except for the first dimension, so a normal initializer doesn't work.
 void InitConstellationSequenceArray() {
   constellation_sequences[0].length =
       sizeof(constellation_sequence_0) / sizeof(TimedMessage);
@@ -131,6 +130,10 @@ void InitConstellationSequenceArray() {
   constellation_sequences[1].length =
       sizeof(constellation_sequence_1) / sizeof(TimedMessage);
   constellation_sequences[1].sequence = constellation_sequence_1;
+
+  constellation_sequences[2].length =
+      sizeof(constellation_sequence_2) / sizeof(TimedMessage);
+  constellation_sequences[2].sequence = constellation_sequence_2;
 };
 
 TimedMessage bedtime_sequence[] = {
@@ -177,6 +180,35 @@ void LedTestPattern() {
     digitalWrite(pin, HIGH);
     delay(600);
     digitalWrite(pin, LOW);
+  }
+}
+
+// FIXME scaffold
+void FindButtonLedPin() {
+  int low = 22; int hi = 32;
+  for (int i = low; i < hi; ++i) {
+    pinMode(i, OUTPUT);
+  }
+  for (int i = low; i < hi; ++i) {
+    Serial.println(i, DEC);
+    digitalWrite(i, HIGH);
+    delay(1000);
+    digitalWrite(i, LOW);
+  }
+}
+
+void SignalTest() {
+  for (int i = 0; i < NUM_BUTTONS; ++i) {
+    int val = digitalRead(button_signal_pins[i]);
+    analogWrite(button_led_pins[i], 255 * val);
+    if (val) {
+      Serial.print(i, DEC);
+      Serial.print(" ");
+      Serial.print(button_signal_pins[i], DEC);
+      Serial.print(" -> ");
+      Serial.println(val, DEC);
+      delay(1000);
+    }
   }
 }
 
@@ -273,14 +305,22 @@ class Button {
     led_pin_ = led_pin;
   }
 
-  int PollSignal() {
+  int Read() {
     return digitalRead(signal_pin_);
   }
 
   // Call this every FADE_INTERVAL_MS.
   void Update(unsigned long now) {
     if (twinkler_.shouldWrite(BLUE)) {
-      analogWrite(led_pin_, twinkler_.Value(BLUE));
+      int val = twinkler_.Value(BLUE);
+      /*
+      Serial.print("writing pin ");
+      Serial.print(led_pin_, DEC);
+      Serial.print(" val ");
+      Serial.println(val, DEC);  // FIXME debug
+      */
+
+      analogWrite(led_pin_, val);
     }
     twinkler_.Update();
   }
@@ -321,16 +361,15 @@ enum StarMode {
 class ButtonController {
  public:
   ButtonController() {
-    last_led_control_time_ = 0;
-    Reset();
-
     for (int i = 0; i < NUM_BUTTONS; ++i) {
       buttons_[i].SetPins(button_signal_pins[i], button_led_pins[i]);
     }
+    Init();
   }
 
-  void Reset() {
+  void Init() {
     selected_button_ = -1;
+    last_led_control_time_ = 0;
   }
 
   void MaybeRunLedControl(unsigned long now) {
@@ -371,8 +410,9 @@ bool ButtonController::PollButtons() {
   byte button_state[NUM_BUTTONS];
   selected_button_ = -1;
   for (int i = 0; i < NUM_BUTTONS; ++i) {
-    button_state[i] = buttons_[i].PollSignal();
+    button_state[i] = buttons_[i].Read();
     if (button_state[i] == HIGH) {
+      Serial.print("hi button "); Serial.println(i, DEC);  // FIXME debug
       // For now, we only handle single button presses at a time.
       selected_button_ = i;
     }
@@ -380,7 +420,7 @@ bool ButtonController::PollButtons() {
   return selected_button_ >= 0;
 }
 
-#define CONSTELLATION_TIME_SEC 10
+#define CONSTELLATION_TIME_SEC 20
 
 class ModeController {
  public:
@@ -447,7 +487,10 @@ bool is_hibernating_ = false;
 byte day_cycle_state_ = ACTIVE;
 
 void loop() {
+  //SignalTest();
+  //FindButtonLedPin();
   //LedTestPattern();  // FIXME for testing
+
   unsigned long now = millis();
   if (day_cycle_state_ == ACTIVE) {
     mode_controller_.ModeControl(now);

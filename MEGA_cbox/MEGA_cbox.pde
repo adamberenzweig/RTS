@@ -106,10 +106,10 @@ TimedMessage constellation_sequence_0[] =
   { 0, "CST 200 0 200 24" },
 };
 TimedMessage constellation_sequence_1[] = {
-  { 0, "CST 200 0 200 25" },
+  { 0, "CST 200 0 200 22" },
 };
 TimedMessage constellation_sequence_2[] = {
-  { 0, "CST 200 0 200 25 26" },
+  { 0, "CST 200 0 200 22 23 24" },
 };
 // If you change the number of sequences, update NUM_CONSTELLATIONS.
 

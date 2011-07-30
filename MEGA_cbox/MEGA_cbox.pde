@@ -447,6 +447,7 @@ class ModeController {
         Serial.println(num_msgs, DEC);
         message_timer_.StartWithMessages(
             constellation_sequences[selected_button].sequence, num_msgs);
+        SendMessageToMaster();
       }
     }
 
@@ -466,6 +467,7 @@ class ModeController {
         // Set the master back to regular twinkle pattern.
         byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
         message_timer_.StartWithMessages(twinkle_messages, num_msgs);
+        SendMessageToMaster();
       }
       // Stop timer.
       mode_timer_start_ = 0;

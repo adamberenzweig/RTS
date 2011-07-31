@@ -10,6 +10,7 @@ Several testing modes:
 - reading messages from the serial port and transmitting.
 **************************************/
 
+#include <DayCycle.h>
 #include <MemoryFree.h>
 #include <MessageTimer.h>
 #include <PrintUtil.h>
@@ -55,34 +56,6 @@ unsigned long last_status_report = 0;
 unsigned long tx_counter = 0;
 // Last time we sent.
 unsigned long last_tx_time = 0;
-// Last time we checked the solar voltage for solar-sleep.
-unsigned long last_solar_check = 0;
-unsigned long last_cycle_transition = 0;
-
-// Histeresis thresholds for the solar sleep transitions.  Go into DAY mode when
-// the solar reading goes above SOLAR_THRESHOLD_HIGH, and go into NIGHT mode
-// when it drops below SOLAR_THRESHOLD_LOW.
-#define SOLAR_THRESHOLD_LOW 20
-#define SOLAR_THRESHOLD_HIGH 100
-
-enum SOLAR_STATE {
-  DAY,
-  NIGHT
-};
-byte solar_state_ = NIGHT;
-
-enum DAY_CYCLE_STATE {
-  ACTIVE,    // Night-time active duty. Let there be light.
-  SLEEPING,  // After active duty, put the slaves to bed to save power.
-  STANDBY,   // Before sunset, no more sleep messages, let the slaves get ready.
-};
-byte day_cycle_state_ = ACTIVE;
-
-#define ACTIVE_DURATION_MS 14400000UL    // 4 hours
-#define SLEEPING_DURATION_MS 64800000UL // 18 hours
-// If this is > 0, then only standby for the specified time.  Otherwise, standby
-// indefinitely until the SOLAR_STATE transitions back to night.
-#define STANDBY_DURATION_MS 7200000UL // 2 hours
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_FRACTION .85
@@ -151,16 +124,15 @@ TimedMessage test_messages[] = {
 */
 };
 
+TimedMessage bedtime_sequence[] =  {
+  { 4000, "OFF" },
+  { 0,    "SLEEP 60 60", },  // Sleep one hour, indefnitely.
+};
 
 // The index of the current test message.
 byte current_message_ = 0;  // FIXME moved inside MessageTimer?
 // Current state of the radio.
 byte radio_mode_ = TRANSMIT_MODE;
-
-// If nonzero, check the solar voltage once per interval, possibly transitioning
-// to daytime sleep mode.
-#define SOLAR_SLEEP_CHECK_INTERVAL_MS 5000
-#define TESTING_SLEEP_TIME_SEC 1200  // 60*20 20mins
 
 bool should_listen_for_status_response_ = false;
 
@@ -225,53 +197,38 @@ void InitActiveCycle() {
   message_timer_.StartWithMessages(test_messages, num_msgs);
 }
 
-TimedMessage bedtime_sequence[] =  {
-  { 4000, "OFF" },
-  { 0,    "SLEEP 60 60", },  // Sleep one hour, indefnitely.
-};
-
-// TODO(madadam): In production, this code or its equivalent will run in the
-// Mega.  Rip it out of here, or at least refactor to a library.
-void CheckForDayCycleTransition(unsigned long now) {
-  if ((STANDBY_DURATION_MS > 0 &&
-       day_cycle_state_ == STANDBY &&
-       IsTimerExpired(now, &last_cycle_transition, STANDBY_DURATION_MS)) ||
-      (SolarTransition(now, &solar_state_) && solar_state_ == NIGHT)) {
-    // Sun just set.  Wake up, little vampire.
-    day_cycle_state_ = ACTIVE;
-    InitActiveCycle();
-  }
-  if (day_cycle_state_ == ACTIVE &&
-      IsTimerExpired(now, &last_cycle_transition, ACTIVE_DURATION_MS)) {
-    day_cycle_state_ = SLEEPING;
-    // Bedtime Sequence:
-    byte num_msgs = (byte)(sizeof(bedtime_sequence) / sizeof(TimedMessage));
-    message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
-  }
-  if (day_cycle_state_ == SLEEPING &&
-      IsTimerExpired(now, &last_cycle_transition, SLEEPING_DURATION_MS)) {
-    day_cycle_state_ = STANDBY;
-    // In standby, we don't transmit, but set this for safety.
-    SetMessage(all_off_message);
-  }
+void InitSleepCycle() {
+  byte num_msgs = (byte)(sizeof(bedtime_sequence) / sizeof(TimedMessage));
+  message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
 }
 
-void loop(){
+DayCycle day_cycle_(SOLAR_PIN);
+
+void loop() {
   unsigned long now = millis();
 
   // Only use the day/night cycles in test_messages mode.
   if (MESSAGE_MODE == TEST_CYCLE) {
-    CheckForDayCycleTransition(now);
-  }
-
-  if (day_cycle_state_ == ACTIVE) {
-    if (MESSAGE_MODE == TEST_CYCLE) {
-      message_timer_.MaybeChangeMessage(now);
-    } else if (MESSAGE_MODE == MESSAGE_SERIAL) {
-      TryReadMessageFromSerial();
+    if (day_cycle_.CheckForTransition(now)) {
+      if (day_cycle_.state() == ACTIVE) {
+        InitActiveCycle();
+      } else if (day_cycle_.state() == SLEEPING) {
+        InitSleepCycle();
+      } else if (day_cycle_.state() == STANDBY) {
+        // In standby, we don't transmit, but set this for safety.
+        SetMessage(all_off_message);
+      }
     }
   }
-  if (day_cycle_state_ != STANDBY) {
+
+  if (MESSAGE_MODE == MESSAGE_SERIAL) {
+    TryReadMessageFromSerial();
+  }
+
+  if (day_cycle_.state() == ACTIVE && MESSAGE_MODE == TEST_CYCLE) {
+    message_timer_.MaybeChangeMessage(now);
+  }
+  if (day_cycle_.state() != STANDBY) {
     MaybeSendMessage(now, PACKET_PERIOD_MS);
   }
   if (should_listen_for_status_response_) {
@@ -333,23 +290,6 @@ void SendNMessages(int n) {
 }
 */
 
-// TODO(madadam): Use SmoothedThreshold here.
-bool SolarTransition(unsigned long now, byte* solar_state) {
-  if (SOLAR_SLEEP_CHECK_INTERVAL_MS > 0 &&
-      IsTimerExpired(now, &last_solar_check, SOLAR_SLEEP_CHECK_INTERVAL_MS)) {
-    int solar_reading = analogRead(SOLAR_PIN);
-    if (solar_reading < SOLAR_THRESHOLD_LOW && *solar_state == DAY) {
-      *solar_state = NIGHT;
-      return true;
-    } else if (solar_reading > SOLAR_THRESHOLD_HIGH &&
-               *solar_state == NIGHT) {
-      *solar_state = DAY;
-      return true;
-    }
-  }
-  return false;
-}
-
 byte rxDataBuffer[CCx_PACKT_LEN];
 void WaitToReceiveStatusUntilTimeout(unsigned long timeout_ms) {
   if (radio_mode_ != RECEIVE_MODE) {
@@ -395,7 +335,7 @@ void MaybeReportStatus(unsigned long now) {
     Serial.print(" ");
     Serial.print(solar_state_, DEC);
     Serial.print(" ");
-    Serial.print(day_cycle_state_, DEC);
+    Serial.print(day_cycle_.state(), DEC);
 
     Serial.println();
   }

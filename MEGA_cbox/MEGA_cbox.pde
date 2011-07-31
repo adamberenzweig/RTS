@@ -6,6 +6,7 @@ Author: Adam Berenzweig
 
 char* versionblurb = "v.1.0 - Control Box"; 
 
+#include <DayCycle.h>
 #include <MessageTimer.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
@@ -141,14 +142,17 @@ TimedMessage bedtime_sequence[] = {
   { 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
 };
 
+TimedMessage standby_sequence[] = {
+  { 4000, "OFF" },
+  { 0, "SLEEP 15 60" },  // Sleep 15 minutes.
+};
+
 // How would star wars work here? I don't think the MessageTimer class will
 // support it.  Probably move the star wars code from the Master into here.
 
-enum DAY_CYCLE_STATE {
-  ACTIVE,
-  SLEEPING,
-  STANDBY,
-};
+#define SOLAR_PIN 7  // FIXME right pin
+// FIXME DayCycle should support time-only mode, for RTC clock.
+DayCycle day_cycle_(SOLAR_PIN);
 
 MessageTimer message_timer_;
 
@@ -174,6 +178,24 @@ inline void SendMessageToMaster() {
   // Serial.println(message_timer_.current_message_string());
 }
 
+void InitActiveCycle() {
+  byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(twinkle_messages, num_msgs);
+  SendMessageToMaster();
+}
+
+void InitSleepCycle() {
+  byte num_msgs = (byte)(sizeof(bedtime_sequence)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
+  SendMessageToMaster();
+}
+
+void InitStandbyCycle() {
+  byte num_msgs = (byte)(sizeof(standby_sequence)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(standby_sequence, num_msgs);
+  SendMessageToMaster();
+}
+
 void LedTestPattern() {
   for (int i = 0; i < NUM_BUTTONS; ++i) {
     int pin = button_led_pins[i];
@@ -197,6 +219,7 @@ void FindButtonLedPin() {
   }
 }
 
+// FIXME scaffold
 void SignalTest() {
   for (int i = 0; i < NUM_BUTTONS; ++i) {
     int val = digitalRead(button_signal_pins[i]);
@@ -222,7 +245,6 @@ void setup() {
   Serial.println(versionblurb);
 
   Serial1.begin(9600);
-  Serial1.println("setup serial1"); // FIXME
 
   //LedTestPattern();
 
@@ -230,11 +252,6 @@ void setup() {
 
   delay(1000);
   InitActiveCycle();
-}
-
-void InitActiveCycle() {
-  byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(twinkle_messages, num_msgs);
 }
 
 // A twinkler to fade out the button LEDs when a different button is pushed.
@@ -289,7 +306,6 @@ class ButtonFadeTwinkler : public Twinkler {
 #define BUTTON_LED_FADE_TIME_SEC 1.0
 
 enum ButtonPanelState {
-  // FIXME Change these to the modes?  TWINKLE, CONSTELLATION, etc?
   BP_ON,
   BP_OFF,
   BP_ONE_SELECTED,
@@ -484,17 +500,25 @@ class ModeController {
 
 ModeController mode_controller_;
 
-// FIXME: use states like the master test.
-bool is_hibernating_ = false;
-byte day_cycle_state_ = ACTIVE;
-
 void loop() {
+  // FIXME scaffold
   //SignalTest();
   //FindButtonLedPin();
-  //LedTestPattern();  // FIXME for testing
+  //LedTestPattern();
 
   unsigned long now = millis();
-  if (day_cycle_state_ == ACTIVE) {
+
+  if (day_cycle_.CheckForTransition(now)) {
+    if (day_cycle_.state() == ACTIVE) {
+      InitActiveCycle();
+    } else if (day_cycle_.state() == SLEEPING) {
+      InitSleepCycle();
+    } else if (day_cycle_.state() == STANDBY) {
+      InitStandbyCycle();
+    }
+  }
+
+  if (day_cycle_.state() == ACTIVE) {
     mode_controller_.ModeControl(now);
     if (message_timer_.MaybeChangeMessage(now)) {
       SendMessageToMaster();
@@ -503,6 +527,5 @@ void loop() {
 
   MaybeReadMasterSerial();
 
-  //HibernationControl(now);
   delay(10); // FIXME
 } 

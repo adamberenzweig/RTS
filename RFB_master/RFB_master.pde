@@ -202,7 +202,7 @@ void InitSleepCycle() {
   message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
 }
 
-DayCycle day_cycle_(SOLAR_PIN);
+DayCycleWithSolar day_cycle_(SOLAR_PIN);
 
 void loop() {
   unsigned long now = millis();

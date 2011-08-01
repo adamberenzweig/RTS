@@ -7,80 +7,15 @@ Author: Adam Berenzweig
 char* versionblurb = "v.1.0 - Control Box"; 
 
 #include <DayCycle.h>
+#include "HardwareSerial.h"
 #include <MessageTimer.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
 #include <PrintUtil.h>
+#include <RTClib.h>
 #include <RtsUtil.h>
 #include <Twinkler.h>
-#include "HardwareSerial.h"
-
-/*
-// ----------------- Button Inputs -----------------
-int asm_button_pin =  51;       // The pin from the Astronomy Button
-int asl_button_pin = 52;        // The pin from the Astrology Button
-int main_button_pin = 53;               // The pin from the Main Button
-// ----------------- 
-
-// Enums for naming some of the pins.  Note that this doesn't cover all of the
-// mega's pins, just the ones we care about.
-enum INPUT_PIN_NAMES {
-  ASTRONOMY_BUTTON,
-  ASTROLOGY_BUTTON,
-  //MAIN_BUTTON,
-  NUM_INPUT_PINS
-};
-
-// Keep this in sync with PIN_NAMES.
-int input_pins[NUM_INPUT_PINS] = {
-  24,  // ASTRONOMY_BUTTON (BUTTON_2_SIGNAL)
-  22,  // ASTROLOGY_BUTTON (BUTTON_1_SIGNAL)
-  //53,  // MAIN_BUTTON
-};
-
-enum OUTPUT_PIN_NAMES {
-  BUTTON_1_LED,
-  LED_STRING_1,
-  BUTTON_2_LED,
-  LED_STRING_2,
-  BUTTON_3_LED,
-  LED_STRING_3,
-  
-  ASTRONOMY_LED_0,
-  ASTRONOMY_LED_1,
-  ASTRONOMY_LED_2,
-  ASTRONOMY_LED_3,
-  ASTRONOMY_LED_4,
-  ASTRONOMY_LED_5,
-  ASTRONOMY_LED_6,
-  ASTRONOMY_LED_7,
-  ASTRONOMY_LED_8,
-  ASTRONOMY_LED_9,
-  ASTRONOMY_LED_10,
-  ASTRONOMY_LED_11,
-
-  ASTROLOGY_LED_0,
-  ASTROLOGY_LED_1,
-  ASTROLOGY_LED_2,
-  ASTROLOGY_LED_3,
-  ASTROLOGY_LED_4,
-  ASTROLOGY_LED_5,
-  ASTROLOGY_LED_6,
-  ASTROLOGY_LED_7,
-  ASTROLOGY_LED_8,
-  ASTROLOGY_LED_9,
-  ASTROLOGY_LED_10,
-  ASTROLOGY_LED_11,
-
-  NUM_OUTPUT_PINS
-};
-
-int output_pins[NUM_OUTPUT_PINS] = {
-  23, 25, 27, 29, 26, 28,  // Button LEDs and LED strings
-  30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, // Astronomy LEDs
-  31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53,   // Astrology LEDs
-};
-*/
+#include <Wire.h>
 
 #define NUM_BUTTONS 3
 
@@ -150,9 +85,21 @@ TimedMessage standby_sequence[] = {
 // How would star wars work here? I don't think the MessageTimer class will
 // support it.  Probably move the star wars code from the Master into here.
 
-#define SOLAR_PIN 7  // FIXME right pin
-// FIXME DayCycle should support time-only mode, for RTC clock.
-DayCycle day_cycle_(SOLAR_PIN);
+DayCycle day_cycle_;
+
+RTC_DS1307 RTC;
+
+struct TransitionTime {
+  // Start time in seconds since midnight.
+  unsigned long start_time;
+  byte day_cycle_state;
+};
+
+TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
+  { 19 * 3600, ACTIVE },
+  { 23 * 3600, SLEEPING },
+  { 17 * 3600, STANDBY }
+};
 
 MessageTimer message_timer_;
 
@@ -196,6 +143,16 @@ void InitStandbyCycle() {
   SendMessageToMaster();
 }
 
+void InitDayCycleTransitions() {
+  for (int i = 0; i < NUM_DAY_CYCLE_STATES; ++i) {
+    if (!day_cycle_.SetTransition(transitions_[i].day_cycle_state,
+                                  transitions_[i].start_time)) {
+      Serial.print("Error in DayCycle transition spec ");
+      Serial.println(i, DEC);
+    }
+  }
+}
+
 void LedTestPattern() {
   for (int i = 0; i < NUM_BUTTONS; ++i) {
     int pin = button_led_pins[i];
@@ -236,15 +193,27 @@ void SignalTest() {
 }
 
 void setup() {
-  for (int i = 0; i < NUM_BUTTONS; ++i) {
-    pinMode(button_signal_pins[i], INPUT);
-    pinMode(button_led_pins[i], OUTPUT);
-  }
-
   Serial.begin(9600);
   Serial.println(versionblurb);
 
   Serial1.begin(9600);
+
+  Wire.begin();
+  RTC.begin();
+
+  if (!RTC.isrunning()) {
+    DateTime date_compiled(__DATE__, __TIME__);
+    RTC.adjust(date_compiled);
+    Serial.print("Set RTC clock to ");
+    Serial.println(date_compiled.unixtime(), DEC);
+  }
+
+  InitDayCycleTransitions();
+
+  for (int i = 0; i < NUM_BUTTONS; ++i) {
+    pinMode(button_signal_pins[i], INPUT);
+    pinMode(button_led_pins[i], OUTPUT);
+  }
 
   //LedTestPattern();
 
@@ -500,6 +469,11 @@ class ModeController {
 
 ModeController mode_controller_;
 
+unsigned long RtcSecondsSinceMidnight() {
+  DateTime now = RTC.now();
+  return now.hour() * 3600 + now.minute() * 60 + now.second();
+}
+
 void loop() {
   // FIXME scaffold
   //SignalTest();
@@ -507,8 +481,10 @@ void loop() {
   //LedTestPattern();
 
   unsigned long now = millis();
+  unsigned long day_time = RtcSecondsSinceMidnight();
+  Serial.println(day_time, DEC);  // FIXME scaffold
 
-  if (day_cycle_.CheckForTransition(now)) {
+  if (day_cycle_.CheckForTransition(day_time)) {
     if (day_cycle_.state() == ACTIVE) {
       InitActiveCycle();
     } else if (day_cycle_.state() == SLEEPING) {

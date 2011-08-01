@@ -22,6 +22,7 @@ enum DAY_CYCLE_STATE {
   ACTIVE,    // Night-time active duty. Let there be light.
   SLEEPING,  // After active duty, put the slaves to bed to save power.
   STANDBY,   // Before sunset, no more sleep messages, let the slaves get ready.
+  NUM_DAY_CYCLE_STATES
 };
 
 #define ACTIVE_DURATION_MS 14400000UL    // 4 hours
@@ -34,9 +35,59 @@ enum DAY_CYCLE_STATE {
 // to daytime sleep mode.
 #define SOLAR_SLEEP_CHECK_INTERVAL_MS 5000
 
+
 class DayCycle {
  public:
-  DayCycle(byte solar_pin)
+  DayCycle() {
+    day_cycle_state_ = ACTIVE;
+    earliest_transition_ = 24 * 86400;  // midnight
+  }
+
+  byte state() const { return day_cycle_state_; }
+
+  bool SetTransition(byte state, unsigned long day_time_sec) {
+    if (state >= NUM_DAY_CYCLE_STATES) {
+      return false;
+    }
+    transition_times_[state] = day_time_sec;
+
+    // Keep track of the earliest state, so we don't have to keep
+    // transition_times_ sorted for CheckForTransition.
+    if (day_time_sec < earliest_transition_) {
+      earliest_transition_ = day_time_sec;
+      earliest_state_ = state;
+    }
+  }
+
+  // Pass in the current time of day, in seconds since midnight.
+  // Return true iff we transitioned to a new state.
+  bool CheckForTransition(unsigned long day_time_sec) {
+    byte new_state = earliest_state_;
+    for (byte i = 0; i < NUM_DAY_CYCLE_STATES; ++i) {
+      if (day_time_sec >= transition_times_[new_state]) {
+        break;
+      }
+      new_state = (new_state + 1) % NUM_DAY_CYCLE_STATES;
+    }
+    if (new_state != day_cycle_state_) {
+      day_cycle_state_ = new_state;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  byte day_cycle_state_;
+  byte earliest_state_;
+  unsigned long earliest_transition_;
+  unsigned long transition_times_[NUM_DAY_CYCLE_STATES];
+};
+
+
+class DayCycleWithSolar {
+ public:
+  // Set solar_pin to 0 disable solar-based transitions.
+  DayCycleWithSolar(byte solar_pin)
       : solar_pin_(solar_pin) {
     day_cycle_state_ = ACTIVE;
     last_solar_check_ = 0;
@@ -71,6 +122,7 @@ class DayCycle {
 
   // TODO(madadam): Use SmoothedThreshold here.
   bool SolarTransition(unsigned long now, byte* solar_state) {
+    if (!solar_pin_) return false;
     if (SOLAR_SLEEP_CHECK_INTERVAL_MS > 0 &&
         IsTimerExpired(now,
                        &last_solar_check_,

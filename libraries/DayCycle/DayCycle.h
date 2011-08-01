@@ -57,6 +57,9 @@ class DayCycle {
       earliest_transition_ = day_time_sec;
       earliest_state_ = state;
     }
+    Serial.print("earliest ");
+    Serial.println(earliest_state_, DEC);
+    return true;
   }
 
   // Pass in the current time of day, in seconds since midnight.
@@ -69,6 +72,8 @@ class DayCycle {
       }
       new_state = (new_state + 1) % NUM_DAY_CYCLE_STATES;
     }
+    Serial.print("new state");
+    Serial.println(new_state, DEC);
     if (new_state != day_cycle_state_) {
       day_cycle_state_ = new_state;
       return true;

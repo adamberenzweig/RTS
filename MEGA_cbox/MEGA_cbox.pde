@@ -19,6 +19,9 @@ char* versionblurb = "v.1.0 - Control Box";
 
 #define NUM_BUTTONS 3
 
+#define STATUS_INTERVAL_MS 10000UL
+unsigned long last_status_report_ = 0;
+
 int button_signal_pins[NUM_BUTTONS] = {
   22, 23, 24
 };
@@ -96,9 +99,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 19 * 3600, ACTIVE },
-  { 23 * 3600, SLEEPING },
-  { 17 * 3600, STANDBY }
+  { 11UL * 3600UL, ACTIVE },
+  { 11UL * 3600UL + 18UL * 60UL, SLEEPING },
+  { 17UL * 3600UL, STANDBY }
 };
 
 MessageTimer message_timer_;
@@ -153,6 +156,19 @@ void InitDayCycleTransitions() {
   }
 }
 
+void MaybeReportStatus(unsigned long now, unsigned long day_time) {
+  if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
+    //memrep();
+    Serial.print(now, DEC);
+    Serial.print(" ");
+    Serial.print(day_time, DEC);
+    Serial.print(" ");
+    Serial.print(day_cycle_.state(), DEC);
+
+    Serial.println();
+  }
+}
+
 void LedTestPattern() {
   for (int i = 0; i < NUM_BUTTONS; ++i) {
     int pin = button_led_pins[i];
@@ -201,6 +217,7 @@ void setup() {
   Wire.begin();
   RTC.begin();
 
+  //if (true) {
   if (!RTC.isrunning()) {
     DateTime date_compiled(__DATE__, __TIME__);
     RTC.adjust(date_compiled);
@@ -471,7 +488,10 @@ ModeController mode_controller_;
 
 unsigned long RtcSecondsSinceMidnight() {
   DateTime now = RTC.now();
-  return now.hour() * 3600 + now.minute() * 60 + now.second();
+  unsigned long secs = (unsigned long)(now.hour()) * 3600UL +
+                       (unsigned long)(now.minute()) * 60UL +
+                       now.second();
+  return secs;
 }
 
 void loop() {
@@ -482,14 +502,16 @@ void loop() {
 
   unsigned long now = millis();
   unsigned long day_time = RtcSecondsSinceMidnight();
-  Serial.println(day_time, DEC);  // FIXME scaffold
 
   if (day_cycle_.CheckForTransition(day_time)) {
     if (day_cycle_.state() == ACTIVE) {
+      Serial.println("going active");
       InitActiveCycle();
     } else if (day_cycle_.state() == SLEEPING) {
+      Serial.println("going sleep");
       InitSleepCycle();
     } else if (day_cycle_.state() == STANDBY) {
+      Serial.println("going standby");
       InitStandbyCycle();
     }
   }
@@ -502,6 +524,8 @@ void loop() {
   }
 
   MaybeReadMasterSerial();
+
+  MaybeReportStatus(now, day_time);
 
   delay(10); // FIXME
 } 

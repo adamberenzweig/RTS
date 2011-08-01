@@ -205,6 +205,15 @@ void LedTestPattern() {
   }
 }
 
+#define LED_STRIP_PIN 29
+
+void LedStripTest() {
+  digitalWrite(LED_STRIP_PIN, HIGH);
+  delay(1000);
+  digitalWrite(LED_STRIP_PIN, LOW);
+  delay(1000);
+}
+
 // FIXME scaffold
 void FindButtonLedPin() {
   int low = 22; int hi = 32;
@@ -240,6 +249,7 @@ void setup() {
     pinMode(button_signal_pins[i], INPUT);
     pinMode(button_led_pins[i], OUTPUT);
   }
+  pinMode(LED_STRIP_PIN, OUTPUT);
 
   Serial.begin(9600);
   Serial.println(versionblurb);
@@ -505,9 +515,11 @@ void loop() {
   //SignalTest();
   //FindButtonLedPin();
   //LedTestPattern();
+  LedStripTest();
 
   unsigned long now = millis();
 
+  /*
   if (day_cycle_.CheckForTransition(now)) {
     if (day_cycle_.state() == ACTIVE) {
       InitActiveCycle();
@@ -526,6 +538,7 @@ void loop() {
   }
 
   MaybeReadMasterSerial();
+  */
 
   delay(10); // FIXME
 } 

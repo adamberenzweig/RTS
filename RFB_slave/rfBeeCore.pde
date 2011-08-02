@@ -77,9 +77,13 @@ int receiveData(byte *rxData, byte *len, byte *srcAddress, byte *destAddress, by
   Serial.println(*len,DEC);
 #endif
   // NOTE(madadam): Instead of CCx.Read for each non-payload byte of the packet,
-  // read the whole thing at once with ReadBurst, and parse it after.
-  // Less back-and-forth with the SPI, might be less error-prone. 
+  // we read the whole thing at once with ReadBurst, and parse it after.
+  // It's less back-and-forth with the SPI, might be less error-prone. 
   // +2 for RSSI and LQI.
+  if (*len + 2 > CCx_PACKT_LEN) {
+    errNo = 1; // Invalid data size.
+    return ERR;
+  }
   stat = CCx.ReadBurst(CCx_RXFIFO, rxData, *len + 2);
   result = CheckStatusForOverflow(stat);
   if (result != OK) {

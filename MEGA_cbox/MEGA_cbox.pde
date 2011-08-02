@@ -101,9 +101,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 11UL * 3600UL + 29UL * 60UL, ACTIVE },
-  { 11UL * 3600UL + 31UL * 60UL, SLEEPING },
-  { 10UL * 3600UL + 0UL * 60UL, STANDBY }  // FIXME
+  { 20UL * 3600UL + 0UL * 60UL, ACTIVE },
+  { 0UL * 3600UL + 0UL * 60UL, SLEEPING },
+  { 18UL * 3600UL + 30UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

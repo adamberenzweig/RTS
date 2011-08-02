@@ -276,7 +276,7 @@ class ButtonFadeTwinkler : public Twinkler {
     // which is why the Twinkler supports two).
     use_led_[BLUE] = 1;
     use_led_[WHITE] = 0;
-    SetSteadyState(HIGH);
+    SetSteadyState(MAX_FADE_VALUE);
   }
 
   virtual char* Name() const { return "ButtonTwinkler"; }

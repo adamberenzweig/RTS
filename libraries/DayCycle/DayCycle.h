@@ -76,8 +76,6 @@ class DayCycle {
       this_state =
           (this_state - 1 + NUM_DAY_CYCLE_STATES) % NUM_DAY_CYCLE_STATES;
     }
-    Serial.print("this state");  // FIXME
-    Serial.println(this_state, DEC);
     if (this_state != day_cycle_state_) {
       day_cycle_state_ = this_state;
       return true;

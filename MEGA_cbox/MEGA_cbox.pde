@@ -77,7 +77,8 @@ void InitConstellationSequenceArray() {
 
 TimedMessage bedtime_sequence[] = {
   { 4000, "OFF" },
-  { 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
+  //{ 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
+  { 0, "SLEEP 60 1" },  // FIXME for testing; put back to one hour.
 };
 
 TimedMessage standby_sequence[] = {
@@ -99,8 +100,8 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 11UL * 3600UL, ACTIVE },
-  { 11UL * 3600UL + 18UL * 60UL, SLEEPING },
+  { 10UL * 3600UL, ACTIVE },
+  { 10UL * 3600UL + 27UL * 60UL, SLEEPING },
   { 9UL * 3600UL, STANDBY }  // FIXME
 };
 
@@ -156,12 +157,26 @@ void InitDayCycleTransitions() {
   }
 }
 
-void MaybeReportStatus(unsigned long now, unsigned long day_time) {
+void PrintDate(const DateTime& dt, HardwareSerial* serial) {
+  serial->print(dt.year(), DEC);
+  serial->print("/");
+  serial->print(dt.month(), DEC);
+  serial->print("/");
+  serial->print(dt.day(), DEC);
+  serial->print(" ");
+  serial->print(dt.hour(), DEC);
+  serial->print(":");
+  serial->print(dt.minute(), DEC);
+  serial->print(":");
+  serial->print(dt.second(), DEC);
+}
+
+void MaybeReportStatus(unsigned long now, const DateTime& dt_now) {
   if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
     //memrep();
     Serial.print(now, DEC);
     Serial.print(" ");
-    Serial.print(day_time, DEC);
+    PrintDate(dt_now, &Serial);
     Serial.print(" ");
     Serial.print(day_cycle_.state(), DEC);
 
@@ -488,8 +503,7 @@ class ModeController {
 
 ModeController mode_controller_;
 
-unsigned long RtcSecondsSinceMidnight() {
-  DateTime now = RTC.now();
+unsigned long RtcSecondsSinceMidnight(const DateTime& now) {
   unsigned long secs = (unsigned long)(now.hour()) * 3600UL +
                        (unsigned long)(now.minute()) * 60UL +
                        now.second();
@@ -503,7 +517,8 @@ void loop() {
   //LedTestPattern();
 
   unsigned long now = millis();
-  unsigned long day_time = RtcSecondsSinceMidnight();
+  DateTime date_time_now = RTC.now();
+  unsigned long day_time = RtcSecondsSinceMidnight(date_time_now);
 
   if (day_cycle_.CheckForTransition(day_time)) {
     if (day_cycle_.state() == ACTIVE) {
@@ -518,16 +533,14 @@ void loop() {
     }
   }
 
-  if (day_cycle_.state() == ACTIVE) {
-    mode_controller_.ModeControl(now);
-    if (message_timer_.MaybeChangeMessage(now)) {
-      SendMessageToMaster();
-    }
+  mode_controller_.ModeControl(now);
+  if (message_timer_.MaybeChangeMessage(now)) {
+    SendMessageToMaster();
   }
 
   MaybeReadMasterSerial();
 
-  MaybeReportStatus(now, day_time);
+  MaybeReportStatus(now, date_time_now);
 
   delay(10); // FIXME
 } 

@@ -101,8 +101,8 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 10UL * 3600UL + 56UL * 60UL, ACTIVE },
-  { 12UL * 3600UL + 0UL * 60UL, SLEEPING },
+  { 11UL * 3600UL + 29UL * 60UL, ACTIVE },
+  { 11UL * 3600UL + 31UL * 60UL, SLEEPING },
   { 10UL * 3600UL + 0UL * 60UL, STANDBY }  // FIXME
 };
 
@@ -128,24 +128,6 @@ inline void SendMessageToMaster() {
   master_serial->println(message_timer_.current_message_string());
   // Serial.print("sent: ");  // FIXME debug scaffold
   // Serial.println(message_timer_.current_message_string());
-}
-
-void InitActiveCycle() {
-  byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(twinkle_messages, num_msgs);
-  SendMessageToMaster();
-}
-
-void InitSleepCycle() {
-  byte num_msgs = (byte)(sizeof(bedtime_sequence)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
-  SendMessageToMaster();
-}
-
-void InitStandbyCycle() {
-  byte num_msgs = (byte)(sizeof(standby_sequence)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(standby_sequence, num_msgs);
-  SendMessageToMaster();
 }
 
 void InitDayCycleTransitions() {
@@ -376,6 +358,7 @@ class Button {
 enum StarMode {
   MODE_TWINKLE,
   MODE_CONSTELLATION,
+  MODE_OFF,
 };
 
 // Keep the array of buttons?
@@ -445,7 +428,9 @@ bool ButtonController::PollButtons() {
 
 class ModeController {
  public:
-  ModeController() {}
+  ModeController() {
+    StartTwinkleMode();
+  }
 
   void ModeControl(unsigned long now) {
     if (star_mode_ == MODE_CONSTELLATION) {
@@ -454,25 +439,50 @@ class ModeController {
 
     if (star_mode_ == MODE_TWINKLE) {
       if (button_controller_.PollButtons()) {
-        // Start mode timer and transition.
-        mode_timer_start_ = now;
-        star_mode_ = MODE_CONSTELLATION;
-        button_controller_.TransitionToState(BP_ONE_SELECTED);
-
-        // Start the selected constellation mode message timer.
-        int selected_button = button_controller_.selected_button();
-        byte num_msgs = constellation_sequences[selected_button].length;
-        Serial.print("Transition to constellation ");
-        Serial.print(selected_button, DEC);
-        Serial.print(" with size ");
-        Serial.println(num_msgs, DEC);
-        message_timer_.StartWithMessages(
-            constellation_sequences[selected_button].sequence, num_msgs);
-        SendMessageToMaster();
+        StartConstellationMode(now);
       }
     }
 
     button_controller_.MaybeRunLedControl(now);
+  }
+
+  void StartConstellationMode(unsigned long now) {
+    Serial.println("G MODE_CONSTELLATION");  // FIXME
+    // Start mode timer and transition.
+    mode_timer_start_ = now;
+    star_mode_ = MODE_CONSTELLATION;
+    button_controller_.TransitionToState(BP_ONE_SELECTED);
+
+    // Start the selected constellation mode message timer.
+    int selected_button = button_controller_.selected_button();
+    byte num_msgs = constellation_sequences[selected_button].length;
+    Serial.print("Transition to constellation ");
+    Serial.print(selected_button, DEC);
+    Serial.print(" with size ");
+    Serial.println(num_msgs, DEC);
+    message_timer_.StartWithMessages(
+        constellation_sequences[selected_button].sequence, num_msgs);
+    SendMessageToMaster();
+  }
+
+  void StartTwinkleMode() {
+    Serial.println("G MODE_TWINKLE");  // FIXME
+    star_mode_ = MODE_TWINKLE;
+    // FIXME: This should clear the button signal poll, so that we don't
+    // read a button press that happened during constellation mode.
+    button_controller_.TransitionToState(BP_ON);
+    mode_timer_start_ = 0;
+
+    // Set the master back to regular twinkle pattern.
+    byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
+    message_timer_.StartWithMessages(twinkle_messages, num_msgs);
+    SendMessageToMaster();
+  }
+
+  void StartInactiveMode() {
+    Serial.println("G MODE_OFF");  // FIXME
+    button_controller_.TransitionToState(BP_OFF);
+    mode_timer_start_ = 0;
   }
 
   bool MaybeChangeMode(unsigned long now) {
@@ -481,14 +491,7 @@ class ModeController {
                        &mode_timer_start_,
                        1000 * CONSTELLATION_TIME_SEC)) {
       if (star_mode_ == MODE_CONSTELLATION) {
-        star_mode_ = MODE_TWINKLE;
-        button_controller_.TransitionToState(BP_ON);
-        Serial.println("Constellation timer expired.");  // FIXME
-
-        // Set the master back to regular twinkle pattern.
-        byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
-        message_timer_.StartWithMessages(twinkle_messages, num_msgs);
-        SendMessageToMaster();
+        StartTwinkleMode();
       }
       // Stop timer.
       mode_timer_start_ = 0;
@@ -505,6 +508,29 @@ class ModeController {
 
 ModeController mode_controller_;
 
+void InitActiveCycle() {
+  mode_controller_.StartTwinkleMode();
+}
+
+void InitSleepCycle() {
+  byte num_msgs = (byte)(sizeof(bedtime_sequence)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
+  SendMessageToMaster();
+
+  // Turn off the button LEDs etc.
+  mode_controller_.StartInactiveMode();
+}
+
+void InitStandbyCycle() {
+  byte num_msgs = (byte)(sizeof(standby_sequence)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(standby_sequence, num_msgs);
+  SendMessageToMaster();
+
+  // Turn off the button LEDs etc.
+  mode_controller_.StartInactiveMode();
+}
+
+
 unsigned long RtcSecondsSinceMidnight(const DateTime& now) {
   unsigned long secs = (unsigned long)(now.hour()) * 3600UL +
                        (unsigned long)(now.minute()) * 60UL +
@@ -518,7 +544,6 @@ void loop() {
   //FindButtonLedPin();
   //LedTestPattern();
 
-  unsigned long now = millis();
   DateTime date_time_now = RTC.now();
   unsigned long day_time = RtcSecondsSinceMidnight(date_time_now);
 
@@ -535,6 +560,7 @@ void loop() {
     }
   }
 
+  unsigned long now = millis();
   mode_controller_.ModeControl(now);
   if (message_timer_.MaybeChangeMessage(now)) {
     SendMessageToMaster();

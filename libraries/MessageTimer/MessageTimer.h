@@ -57,6 +57,7 @@ class MessageTimer {
     messages_ = messages;
     num_messages_ = num_messages;
     SetCurrentMessage(0);
+    ResetTimer();
   }
 
   void SetCurrentMessage(byte current_message) {

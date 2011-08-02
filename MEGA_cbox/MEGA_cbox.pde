@@ -481,6 +481,7 @@ class ModeController {
 
   void StartInactiveMode() {
     Serial.println("G MODE_OFF");  // FIXME
+    star_mode_ = MODE_OFF;
     button_controller_.TransitionToState(BP_OFF);
     mode_timer_start_ = 0;
   }

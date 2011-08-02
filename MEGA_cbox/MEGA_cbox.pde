@@ -83,7 +83,8 @@ TimedMessage bedtime_sequence[] = {
 
 TimedMessage standby_sequence[] = {
   { 4000, "OFF" },
-  { 0, "SLEEP 15 60" },  // Sleep 15 minutes.
+  //{ 0, "SLEEP 15 60" },  // Sleep 15 minutes.
+  { 0, "SLEEP 30 1" },  // Sleep 15 minutes.
 };
 
 // How would star wars work here? I don't think the MessageTimer class will
@@ -100,9 +101,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 10UL * 3600UL, ACTIVE },
-  { 10UL * 3600UL + 27UL * 60UL, SLEEPING },
-  { 9UL * 3600UL, STANDBY }  // FIXME
+  { 10UL * 3600UL + 56UL * 60UL, ACTIVE },
+  { 12UL * 3600UL + 0UL * 60UL, SLEEPING },
+  { 10UL * 3600UL + 0UL * 60UL, STANDBY }  // FIXME
 };
 
 MessageTimer message_timer_;
@@ -174,9 +175,10 @@ void PrintDate(const DateTime& dt, HardwareSerial* serial) {
 void MaybeReportStatus(unsigned long now, const DateTime& dt_now) {
   if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
     //memrep();
-    Serial.print(now, DEC);
-    Serial.print(" ");
+    Serial.print("G ");
     PrintDate(dt_now, &Serial);
+    Serial.print(" ");
+    Serial.print(now, DEC);
     Serial.print(" ");
     Serial.print(day_cycle_.state(), DEC);
 
@@ -522,13 +524,13 @@ void loop() {
 
   if (day_cycle_.CheckForTransition(day_time)) {
     if (day_cycle_.state() == ACTIVE) {
-      Serial.println("going active");
+      Serial.println("G Starting ACTIVE");
       InitActiveCycle();
     } else if (day_cycle_.state() == SLEEPING) {
-      Serial.println("going sleep");
+      Serial.println("G Starting SLEEP");
       InitSleepCycle();
     } else if (day_cycle_.state() == STANDBY) {
-      Serial.println("going standby");
+      Serial.println("G Starting STANDBY");
       InitStandbyCycle();
     }
   }

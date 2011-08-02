@@ -57,8 +57,6 @@ class DayCycle {
       latest_transition_ = day_time_sec;
       latest_state_ = state;
     }
-    Serial.print("latest ");  // FIXME
-    Serial.println(latest_state_, DEC);
     return true;
   }
 

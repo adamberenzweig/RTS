@@ -57,7 +57,7 @@ class DayCycle {
       earliest_transition_ = day_time_sec;
       earliest_state_ = state;
     }
-    Serial.print("earliest ");
+    Serial.print("earliest ");  // FIXME
     Serial.println(earliest_state_, DEC);
     return true;
   }
@@ -72,7 +72,7 @@ class DayCycle {
       }
       new_state = (new_state + 1) % NUM_DAY_CYCLE_STATES;
     }
-    Serial.print("new state");
+    Serial.print("new state");  // FIXME
     Serial.println(new_state, DEC);
     if (new_state != day_cycle_state_) {
       day_cycle_state_ = new_state;

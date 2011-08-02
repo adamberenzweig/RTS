@@ -40,42 +40,46 @@ class DayCycle {
  public:
   DayCycle() {
     day_cycle_state_ = ACTIVE;
-    earliest_transition_ = 24 * 86400;  // midnight
+    latest_transition_ = 0;
   }
 
   byte state() const { return day_cycle_state_; }
 
-  bool SetTransition(byte state, unsigned long day_time_sec) {
+  bool SetStart(byte state, unsigned long day_time_sec) {
     if (state >= NUM_DAY_CYCLE_STATES) {
       return false;
     }
-    transition_times_[state] = day_time_sec;
+    start_times_[state] = day_time_sec;
 
-    // Keep track of the earliest state, so we don't have to keep
-    // transition_times_ sorted for CheckForTransition.
-    if (day_time_sec < earliest_transition_) {
-      earliest_transition_ = day_time_sec;
-      earliest_state_ = state;
+    // Keep track of the latest state, so we don't have to keep
+    // start_times_ sorted for CheckForTransition.
+    if (day_time_sec > latest_transition_) {
+      latest_transition_ = day_time_sec;
+      latest_state_ = state;
     }
-    Serial.print("earliest ");  // FIXME
-    Serial.println(earliest_state_, DEC);
+    Serial.print("latest ");  // FIXME
+    Serial.println(latest_state_, DEC);
     return true;
   }
 
   // Pass in the current time of day, in seconds since midnight.
   // Return true iff we transitioned to a new state.
   bool CheckForTransition(unsigned long day_time_sec) {
-    byte new_state = earliest_state_;
+    // Figure out what state we're in now by walking backwards through the
+    // states from the latest.
+    byte this_state = latest_state_;
     for (byte i = 0; i < NUM_DAY_CYCLE_STATES; ++i) {
-      if (day_time_sec >= transition_times_[new_state]) {
+      if (day_time_sec > start_times_[this_state]) {
         break;
       }
-      new_state = (new_state + 1) % NUM_DAY_CYCLE_STATES;
+      // + NUM_DAY_CYCLE_STATES to prevent it from going negative.
+      this_state =
+          (this_state - 1 + NUM_DAY_CYCLE_STATES) % NUM_DAY_CYCLE_STATES;
     }
-    Serial.print("new state");  // FIXME
-    Serial.println(new_state, DEC);
-    if (new_state != day_cycle_state_) {
-      day_cycle_state_ = new_state;
+    Serial.print("this state");  // FIXME
+    Serial.println(this_state, DEC);
+    if (this_state != day_cycle_state_) {
+      day_cycle_state_ = this_state;
       return true;
     }
     return false;
@@ -83,9 +87,9 @@ class DayCycle {
 
  private:
   byte day_cycle_state_;
-  byte earliest_state_;
-  unsigned long earliest_transition_;
-  unsigned long transition_times_[NUM_DAY_CYCLE_STATES];
+  byte latest_state_;
+  unsigned long latest_transition_;
+  unsigned long start_times_[NUM_DAY_CYCLE_STATES];
 };
 
 

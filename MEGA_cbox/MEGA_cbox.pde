@@ -101,7 +101,7 @@ struct TransitionTime {
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
   { 11UL * 3600UL, ACTIVE },
   { 11UL * 3600UL + 18UL * 60UL, SLEEPING },
-  { 17UL * 3600UL, STANDBY }
+  { 9UL * 3600UL, STANDBY }  // FIXME
 };
 
 MessageTimer message_timer_;
@@ -148,8 +148,8 @@ void InitStandbyCycle() {
 
 void InitDayCycleTransitions() {
   for (int i = 0; i < NUM_DAY_CYCLE_STATES; ++i) {
-    if (!day_cycle_.SetTransition(transitions_[i].day_cycle_state,
-                                  transitions_[i].start_time)) {
+    if (!day_cycle_.SetStart(transitions_[i].day_cycle_state,
+                             transitions_[i].start_time)) {
       Serial.print("Error in DayCycle transition spec ");
       Serial.println(i, DEC);
     }
@@ -215,7 +215,9 @@ void setup() {
   Serial1.begin(9600);
 
   Wire.begin();
-  RTC.begin();
+  if (!RTC.begin()) {
+    Serial.println("RTC init failed.");
+  }
 
   //if (true) {
   if (!RTC.isrunning()) {

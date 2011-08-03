@@ -79,14 +79,12 @@ void InitConstellationSequenceArray() {
 
 TimedMessage bedtime_sequence[] = {
   { 4000, "OFF" },
-  //{ 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
-  { 0, "SLEEP 60 1" },  // FIXME for testing; put back to one hour.
+  { 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
 };
 
 TimedMessage standby_sequence[] = {
   { 4000, "OFF" },
-  //{ 0, "SLEEP 15 60" },  // Sleep 15 minutes.
-  { 0, "SLEEP 30 1" },  // Sleep 30 sec minutes.
+  { 0, "SLEEP 5 60" },  // Sleep 5 minutes.
 };
 
 // How would star wars work here? I don't think the MessageTimer class will
@@ -103,9 +101,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 10UL * 3600UL + 15UL * 60UL, ACTIVE },
-  { 0UL * 3600UL + 0UL * 60UL, SLEEPING },
-  { 10UL * 3600UL + 0UL * 60UL, STANDBY }
+  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

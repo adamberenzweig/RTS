@@ -85,11 +85,15 @@ class RtsMessage {
  public:
   // raw_bytes must be allocated for at least RTS_MESSAGE_SIZE
   RtsMessage(byte* raw_bytes);
-  
+
   void DebugPrint() const;
 
   // Return the RTS_COMMAND that this slave should run based on the message.
   byte getMyState(byte my_id) const;
+
+  // Special values which, when used as IDs, mean "All Odd" or "All Even" stars.
+  static const byte kSelectAllOddStars = 254;
+  static const byte kSelectAllEvenStars = 255;
 
   // You must call this before writing to the message.
   void initWrite();

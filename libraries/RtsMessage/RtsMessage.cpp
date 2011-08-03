@@ -119,6 +119,14 @@ byte RtsMessage::getMyState(byte my_id) const {
       // Zero means end-of-list.
       break;
     }
+    // Check for the special IDs that mean "All Odd" and "All Even".
+    if ((kSelectAllOddStars == message_[i] &&
+         my_id % 2 == 1) ||
+        (kSelectAllEvenStars == message_[i] &&
+         my_id % 2 == 0)) {
+      message_for_me = true;
+      break;
+    }
   }
   if (i == RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES) {
     // The ID list was empty.  An empty ID list means "ALL".

@@ -33,7 +33,9 @@ int button_led_pins[NUM_BUTTONS] = {
 TimedMessage twinkle_messages[] = {
   //{ 10000, "TWK 215 60 0" },  // Sparse blue.
   //{ 10000, "TWK 215 60 1" },  // Sparse white.
-  { 30000, "TWK 245 10 0" },  // Fast blue.
+  //{ 30000, "TWK 245 10 0" },  // Fast blue.
+  { 30000, "TWK 245 10 0 255" },  // Fast blue odd.
+  { 30000, "TWK 245 10 0 254" },  // Fast blue even.
   //{ 10000, "CST 200 0 200 50 51 52" },  // A constellation.
   //{ 10000, "CST 200 200 100 2" },  // A constellation.
   { 5000,  "STATUS 24" },
@@ -84,7 +86,7 @@ TimedMessage bedtime_sequence[] = {
 TimedMessage standby_sequence[] = {
   { 4000, "OFF" },
   //{ 0, "SLEEP 15 60" },  // Sleep 15 minutes.
-  { 0, "SLEEP 30 1" },  // Sleep 15 minutes.
+  { 0, "SLEEP 30 1" },  // Sleep 30 sec minutes.
 };
 
 // How would star wars work here? I don't think the MessageTimer class will
@@ -101,9 +103,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 20UL * 3600UL + 0UL * 60UL, ACTIVE },
+  { 10UL * 3600UL + 15UL * 60UL, ACTIVE },
   { 0UL * 3600UL + 0UL * 60UL, SLEEPING },
-  { 18UL * 3600UL + 30UL * 60UL, STANDBY }
+  { 10UL * 3600UL + 0UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

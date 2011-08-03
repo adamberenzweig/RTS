@@ -92,8 +92,8 @@ class RtsMessage {
   byte getMyState(byte my_id) const;
 
   // Special values which, when used as IDs, mean "All Odd" or "All Even" stars.
-  static const byte kSelectAllOddStars = 254;
-  static const byte kSelectAllEvenStars = 255;
+  static const byte kSelectAllOddStars = 255;
+  static const byte kSelectAllEvenStars = 254;
 
   // You must call this before writing to the message.
   void initWrite();

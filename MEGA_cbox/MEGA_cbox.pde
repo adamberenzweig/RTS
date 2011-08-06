@@ -108,6 +108,8 @@ TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
 
 MessageTimer message_timer_;
 
+#define LED_STRIP_PIN 35
+
 // Master-Mega communication happens over this port:
 HardwareSerial* master_serial = &Serial1;
 
@@ -176,8 +178,6 @@ void LedTestPattern() {
     digitalWrite(pin, LOW);
   }
 }
-
-#define LED_STRIP_PIN 29
 
 // FIXME scaffold
 void LedStripTest() {
@@ -522,6 +522,7 @@ ModeController mode_controller_;
 
 void InitActiveCycle() {
   mode_controller_.StartTwinkleMode();
+  digitalWrite(LED_STRIP_PIN, HIGH);
 }
 
 void InitSleepCycle() {
@@ -531,6 +532,7 @@ void InitSleepCycle() {
 
   // Turn off the button LEDs etc.
   mode_controller_.StartInactiveMode();
+  digitalWrite(LED_STRIP_PIN, LOW);
 }
 
 void InitStandbyCycle() {
@@ -540,6 +542,7 @@ void InitStandbyCycle() {
 
   // Turn off the button LEDs etc.
   mode_controller_.StartInactiveMode();
+  digitalWrite(LED_STRIP_PIN, LOW);
 }
 
 

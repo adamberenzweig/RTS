@@ -110,14 +110,17 @@ byte RtsMessage::getMyState(byte my_id) const {
   // simpler to do for all.
   // Skip the command and param bytes.
   int i = RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES;
-  for (; i < RTS_MESSAGE_SIZE; ++i) {
+  // Zero means end-of-list.
+  for (; i < RTS_MESSAGE_SIZE && message_[i] != 0; ++i) {
     if (my_id == message_[i]) {
       message_for_me = true;
-      break;
     }
-    if (0 == message_[i]) {
-      // Zero means end-of-list.
-      break;
+    // Check for the special IDs that mean "All Odd" and "All Even".
+    if ((kSelectAllOddStars == message_[i] &&
+         my_id % 2 == 1) ||
+        (kSelectAllEvenStars == message_[i] &&
+         my_id % 2 == 0)) {
+      message_for_me = true;
     }
   }
   if (i == RTS_MSG_PARAM_SIZE + RTS_MSG_COMMAND_BYTES) {
@@ -126,8 +129,10 @@ byte RtsMessage::getMyState(byte my_id) const {
   }
 
   if (!message_for_me) {
-    if (command == RTS_CONSTELLATION) {
-      // When a constellation is on, the other stars should go dark.
+    if (command == RTS_CONSTELLATION ||
+        command == RTS_TWINKLE) {
+      // When a selective twinkle or constellation is on, the other stars
+      // should go dark.
       return RTS_OFF;
     } else {
       return RTS_IGNORE;

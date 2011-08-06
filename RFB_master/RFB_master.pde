@@ -202,7 +202,7 @@ void InitSleepCycle() {
   message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
 }
 
-DayCycle day_cycle_(SOLAR_PIN);
+DayCycleWithSolar day_cycle_(SOLAR_PIN);
 
 void loop() {
   unsigned long now = millis();
@@ -362,7 +362,8 @@ inline void SetRadioMode(byte mode) {
 void rfBeeInit(){
   CCx.PowerOnStartUp();
   byte config_id = 0;
-  byte config_pa_id = 0;
+  // Max power.
+  byte config_pa_id = 7;
   CCx.Setup(config_id);
   CCx.Write(CCx_ADDR, RTS_ID);
   CCx.Write(CCx_PKTCTRL1, ADDRESS_CHECK | 0x04);

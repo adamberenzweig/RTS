@@ -7,82 +7,20 @@ Author: Adam Berenzweig
 char* versionblurb = "v.1.0 - Control Box"; 
 
 #include <DayCycle.h>
+#include "HardwareSerial.h"
 #include <MessageTimer.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
 #include <PrintUtil.h>
+#include <RTClib.h>
 #include <RtsUtil.h>
 #include <Twinkler.h>
-#include "HardwareSerial.h"
-
-/*
-// ----------------- Button Inputs -----------------
-int asm_button_pin =  51;       // The pin from the Astronomy Button
-int asl_button_pin = 52;        // The pin from the Astrology Button
-int main_button_pin = 53;               // The pin from the Main Button
-// ----------------- 
-
-// Enums for naming some of the pins.  Note that this doesn't cover all of the
-// mega's pins, just the ones we care about.
-enum INPUT_PIN_NAMES {
-  ASTRONOMY_BUTTON,
-  ASTROLOGY_BUTTON,
-  //MAIN_BUTTON,
-  NUM_INPUT_PINS
-};
-
-// Keep this in sync with PIN_NAMES.
-int input_pins[NUM_INPUT_PINS] = {
-  24,  // ASTRONOMY_BUTTON (BUTTON_2_SIGNAL)
-  22,  // ASTROLOGY_BUTTON (BUTTON_1_SIGNAL)
-  //53,  // MAIN_BUTTON
-};
-
-enum OUTPUT_PIN_NAMES {
-  BUTTON_1_LED,
-  LED_STRING_1,
-  BUTTON_2_LED,
-  LED_STRING_2,
-  BUTTON_3_LED,
-  LED_STRING_3,
-  
-  ASTRONOMY_LED_0,
-  ASTRONOMY_LED_1,
-  ASTRONOMY_LED_2,
-  ASTRONOMY_LED_3,
-  ASTRONOMY_LED_4,
-  ASTRONOMY_LED_5,
-  ASTRONOMY_LED_6,
-  ASTRONOMY_LED_7,
-  ASTRONOMY_LED_8,
-  ASTRONOMY_LED_9,
-  ASTRONOMY_LED_10,
-  ASTRONOMY_LED_11,
-
-  ASTROLOGY_LED_0,
-  ASTROLOGY_LED_1,
-  ASTROLOGY_LED_2,
-  ASTROLOGY_LED_3,
-  ASTROLOGY_LED_4,
-  ASTROLOGY_LED_5,
-  ASTROLOGY_LED_6,
-  ASTROLOGY_LED_7,
-  ASTROLOGY_LED_8,
-  ASTROLOGY_LED_9,
-  ASTROLOGY_LED_10,
-  ASTROLOGY_LED_11,
-
-  NUM_OUTPUT_PINS
-};
-
-int output_pins[NUM_OUTPUT_PINS] = {
-  23, 25, 27, 29, 26, 28,  // Button LEDs and LED strings
-  30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, // Astronomy LEDs
-  31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53,   // Astrology LEDs
-};
-*/
+#include <Wire.h>
 
 #define NUM_BUTTONS 3
+
+#define STATUS_INTERVAL_MS 10000UL
+unsigned long last_status_report_ = 0;
 
 int button_signal_pins[NUM_BUTTONS] = {
   22, 23, 24
@@ -95,7 +33,9 @@ int button_led_pins[NUM_BUTTONS] = {
 TimedMessage twinkle_messages[] = {
   //{ 10000, "TWK 215 60 0" },  // Sparse blue.
   //{ 10000, "TWK 215 60 1" },  // Sparse white.
-  { 30000, "TWK 245 10 0" },  // Fast blue.
+  //{ 30000, "TWK 245 10 0" },  // Fast blue.
+  { 30000, "TWK 245 10 0 255" },  // Fast blue odd.
+  { 30000, "TWK 245 10 0 254" },  // Fast blue even.
   //{ 10000, "CST 200 0 200 50 51 52" },  // A constellation.
   //{ 10000, "CST 200 200 100 2" },  // A constellation.
   { 5000,  "STATUS 24" },
@@ -144,15 +84,27 @@ TimedMessage bedtime_sequence[] = {
 
 TimedMessage standby_sequence[] = {
   { 4000, "OFF" },
-  { 0, "SLEEP 15 60" },  // Sleep 15 minutes.
+  { 0, "SLEEP 5 60" },  // Sleep 5 minutes.
 };
 
 // How would star wars work here? I don't think the MessageTimer class will
 // support it.  Probably move the star wars code from the Master into here.
 
-#define SOLAR_PIN 7  // FIXME right pin
-// FIXME DayCycle should support time-only mode, for RTC clock.
-DayCycle day_cycle_(SOLAR_PIN);
+DayCycle day_cycle_;
+
+RTC_DS1307 RTC;
+
+struct TransitionTime {
+  // Start time in seconds since midnight.
+  unsigned long start_time;
+  byte day_cycle_state;
+};
+
+TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
+  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
+};
 
 MessageTimer message_timer_;
 
@@ -178,22 +130,42 @@ inline void SendMessageToMaster() {
   // Serial.println(message_timer_.current_message_string());
 }
 
-void InitActiveCycle() {
-  byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(twinkle_messages, num_msgs);
-  SendMessageToMaster();
+void InitDayCycleTransitions() {
+  for (int i = 0; i < NUM_DAY_CYCLE_STATES; ++i) {
+    if (!day_cycle_.SetStart(transitions_[i].day_cycle_state,
+                             transitions_[i].start_time)) {
+      Serial.print("Error in DayCycle transition spec ");
+      Serial.println(i, DEC);
+    }
+  }
 }
 
-void InitSleepCycle() {
-  byte num_msgs = (byte)(sizeof(bedtime_sequence)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
-  SendMessageToMaster();
+void PrintDate(const DateTime& dt, HardwareSerial* serial) {
+  serial->print(dt.year(), DEC);
+  serial->print("/");
+  serial->print(dt.month(), DEC);
+  serial->print("/");
+  serial->print(dt.day(), DEC);
+  serial->print(" ");
+  serial->print(dt.hour(), DEC);
+  serial->print(":");
+  serial->print(dt.minute(), DEC);
+  serial->print(":");
+  serial->print(dt.second(), DEC);
 }
 
-void InitStandbyCycle() {
-  byte num_msgs = (byte)(sizeof(standby_sequence)/sizeof(TimedMessage));
-  message_timer_.StartWithMessages(standby_sequence, num_msgs);
-  SendMessageToMaster();
+void MaybeReportStatus(unsigned long now, const DateTime& dt_now) {
+  if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
+    //memrep();
+    Serial.print("G ");
+    PrintDate(dt_now, &Serial);
+    Serial.print(" ");
+    Serial.print(now, DEC);
+    Serial.print(" ");
+    Serial.print(day_cycle_.state(), DEC);
+
+    Serial.println();
+  }
 }
 
 void LedTestPattern() {
@@ -207,6 +179,7 @@ void LedTestPattern() {
 
 #define LED_STRIP_PIN 29
 
+// FIXME scaffold
 void LedStripTest() {
   digitalWrite(LED_STRIP_PIN, HIGH);
   delay(1000);
@@ -245,16 +218,31 @@ void SignalTest() {
 }
 
 void setup() {
+  Serial.begin(9600);
+  Serial.println(versionblurb);
+
+  Serial1.begin(9600);
+
+  Wire.begin();
+  if (!RTC.begin()) {
+    Serial.println("RTC init failed.");
+  }
+
+  //if (true) {
+  if (!RTC.isrunning()) {
+    DateTime date_compiled(__DATE__, __TIME__);
+    RTC.adjust(date_compiled);
+    Serial.print("Set RTC clock to ");
+    Serial.println(date_compiled.unixtime(), DEC);
+  }
+
+  InitDayCycleTransitions();
+
   for (int i = 0; i < NUM_BUTTONS; ++i) {
     pinMode(button_signal_pins[i], INPUT);
     pinMode(button_led_pins[i], OUTPUT);
   }
   pinMode(LED_STRIP_PIN, OUTPUT);
-
-  Serial.begin(9600);
-  Serial.println(versionblurb);
-
-  Serial1.begin(9600);
 
   //LedTestPattern();
 
@@ -381,6 +369,7 @@ class Button {
 enum StarMode {
   MODE_TWINKLE,
   MODE_CONSTELLATION,
+  MODE_OFF,
 };
 
 // Keep the array of buttons?
@@ -450,7 +439,9 @@ bool ButtonController::PollButtons() {
 
 class ModeController {
  public:
-  ModeController() {}
+  ModeController() {
+    StartTwinkleMode();
+  }
 
   void ModeControl(unsigned long now) {
     if (star_mode_ == MODE_CONSTELLATION) {
@@ -459,25 +450,51 @@ class ModeController {
 
     if (star_mode_ == MODE_TWINKLE) {
       if (button_controller_.PollButtons()) {
-        // Start mode timer and transition.
-        mode_timer_start_ = now;
-        star_mode_ = MODE_CONSTELLATION;
-        button_controller_.TransitionToState(BP_ONE_SELECTED);
-
-        // Start the selected constellation mode message timer.
-        int selected_button = button_controller_.selected_button();
-        byte num_msgs = constellation_sequences[selected_button].length;
-        Serial.print("Transition to constellation ");
-        Serial.print(selected_button, DEC);
-        Serial.print(" with size ");
-        Serial.println(num_msgs, DEC);
-        message_timer_.StartWithMessages(
-            constellation_sequences[selected_button].sequence, num_msgs);
-        SendMessageToMaster();
+        StartConstellationMode(now);
       }
     }
 
     button_controller_.MaybeRunLedControl(now);
+  }
+
+  void StartConstellationMode(unsigned long now) {
+    Serial.println("G MODE_CONSTELLATION");  // FIXME
+    // Start mode timer and transition.
+    mode_timer_start_ = now;
+    star_mode_ = MODE_CONSTELLATION;
+    button_controller_.TransitionToState(BP_ONE_SELECTED);
+
+    // Start the selected constellation mode message timer.
+    int selected_button = button_controller_.selected_button();
+    byte num_msgs = constellation_sequences[selected_button].length;
+    Serial.print("Transition to constellation ");
+    Serial.print(selected_button, DEC);
+    Serial.print(" with size ");
+    Serial.println(num_msgs, DEC);
+    message_timer_.StartWithMessages(
+        constellation_sequences[selected_button].sequence, num_msgs);
+    SendMessageToMaster();
+  }
+
+  void StartTwinkleMode() {
+    Serial.println("G MODE_TWINKLE");  // FIXME
+    star_mode_ = MODE_TWINKLE;
+    // FIXME: This should clear the button signal poll, so that we don't
+    // read a button press that happened during constellation mode.
+    button_controller_.TransitionToState(BP_ON);
+    mode_timer_start_ = 0;
+
+    // Set the master back to regular twinkle pattern.
+    byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
+    message_timer_.StartWithMessages(twinkle_messages, num_msgs);
+    SendMessageToMaster();
+  }
+
+  void StartInactiveMode() {
+    Serial.println("G MODE_OFF");  // FIXME
+    star_mode_ = MODE_OFF;
+    button_controller_.TransitionToState(BP_OFF);
+    mode_timer_start_ = 0;
   }
 
   bool MaybeChangeMode(unsigned long now) {
@@ -486,14 +503,7 @@ class ModeController {
                        &mode_timer_start_,
                        1000 * CONSTELLATION_TIME_SEC)) {
       if (star_mode_ == MODE_CONSTELLATION) {
-        star_mode_ = MODE_TWINKLE;
-        button_controller_.TransitionToState(BP_ON);
-        Serial.println("Constellation timer expired.");  // FIXME
-
-        // Set the master back to regular twinkle pattern.
-        byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
-        message_timer_.StartWithMessages(twinkle_messages, num_msgs);
-        SendMessageToMaster();
+        StartTwinkleMode();
       }
       // Stop timer.
       mode_timer_start_ = 0;
@@ -510,35 +520,68 @@ class ModeController {
 
 ModeController mode_controller_;
 
+void InitActiveCycle() {
+  mode_controller_.StartTwinkleMode();
+}
+
+void InitSleepCycle() {
+  byte num_msgs = (byte)(sizeof(bedtime_sequence)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(bedtime_sequence, num_msgs);
+  SendMessageToMaster();
+
+  // Turn off the button LEDs etc.
+  mode_controller_.StartInactiveMode();
+}
+
+void InitStandbyCycle() {
+  byte num_msgs = (byte)(sizeof(standby_sequence)/sizeof(TimedMessage));
+  message_timer_.StartWithMessages(standby_sequence, num_msgs);
+  SendMessageToMaster();
+
+  // Turn off the button LEDs etc.
+  mode_controller_.StartInactiveMode();
+}
+
+
+unsigned long RtcSecondsSinceMidnight(const DateTime& now) {
+  unsigned long secs = (unsigned long)(now.hour()) * 3600UL +
+                       (unsigned long)(now.minute()) * 60UL +
+                       now.second();
+  return secs;
+}
+
 void loop() {
   // FIXME scaffold
   //SignalTest();
   //FindButtonLedPin();
   //LedTestPattern();
-  LedStripTest();
+  //LedStripTest();
 
-  unsigned long now = millis();
+  DateTime date_time_now = RTC.now();
+  unsigned long day_time = RtcSecondsSinceMidnight(date_time_now);
 
-  /*
-  if (day_cycle_.CheckForTransition(now)) {
+  if (day_cycle_.CheckForTransition(day_time)) {
     if (day_cycle_.state() == ACTIVE) {
+      Serial.println("G Starting ACTIVE");
       InitActiveCycle();
     } else if (day_cycle_.state() == SLEEPING) {
+      Serial.println("G Starting SLEEP");
       InitSleepCycle();
     } else if (day_cycle_.state() == STANDBY) {
+      Serial.println("G Starting STANDBY");
       InitStandbyCycle();
     }
   }
 
-  if (day_cycle_.state() == ACTIVE) {
-    mode_controller_.ModeControl(now);
-    if (message_timer_.MaybeChangeMessage(now)) {
-      SendMessageToMaster();
-    }
+  unsigned long now = millis();
+  mode_controller_.ModeControl(now);
+  if (message_timer_.MaybeChangeMessage(now)) {
+    SendMessageToMaster();
   }
 
   MaybeReadMasterSerial();
-  */
+
+  MaybeReportStatus(now, date_time_now);
 
   delay(10); // FIXME
 } 

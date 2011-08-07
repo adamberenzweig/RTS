@@ -8,12 +8,14 @@ char* versionblurb = "v.1.0 - Control Box";
 
 #include <DayCycle.h>
 #include "HardwareSerial.h"
+#include <DateTime.h>
 #include <MessageTimer.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
 #include <PrintUtil.h>
 #include <RTClib.h>
 #include <RtsUtil.h>
+#include <SD.h>
 #include <Twinkler.h>
 #include <Wire.h>
 
@@ -110,6 +112,9 @@ MessageTimer message_timer_;
 
 #define LED_STRIP_PIN 35
 
+// As per Arduino documentation about SD reader on a Mega.
+#define SD_CHIP_SELECT_PIN 53
+
 // Master-Mega communication happens over this port:
 HardwareSerial* master_serial = &Serial1;
 
@@ -142,11 +147,22 @@ void InitDayCycleTransitions() {
   }
 }
 
-void PrintDate(const DateTime& dt, HardwareSerial* serial) {
+// Declare a global DateTime even though we don't need it, to work around a
+// compiler bug in Arduino 22.
+DateTime date_time_now_;
+
+void PrintDate(HardwareSerial* serial) {
+  // Work around Arduino 22 bug instead of passing param:
+  const DateTime& dt = date_time_now_;
   serial->print(dt.year(), DEC);
   serial->print("/");
   serial->print(dt.month(), DEC);
   serial->print("/");
+  digitalWrite(LED_STRIP_PIN, LOW);
+  digitalWrite(LED_STRIP_PIN, LOW);
+  digitalWrite(LED_STRIP_PIN, LOW);
+  digitalWrite(LED_STRIP_PIN, LOW);
+  digitalWrite(LED_STRIP_PIN, LOW);
   serial->print(dt.day(), DEC);
   serial->print(" ");
   serial->print(dt.hour(), DEC);
@@ -156,11 +172,13 @@ void PrintDate(const DateTime& dt, HardwareSerial* serial) {
   serial->print(dt.second(), DEC);
 }
 
-void MaybeReportStatus(unsigned long now, const DateTime& dt_now) {
+void MaybeReportStatus(unsigned long now) {
+  // Work around Arduino 22 bug instead of passing param:
+  const DateTime& dt_now = date_time_now_;
   if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
     //memrep();
     Serial.print("G ");
-    PrintDate(dt_now, &Serial);
+    PrintDate(&Serial);
     Serial.print(" ");
     Serial.print(now, DEC);
     Serial.print(" ");
@@ -177,6 +195,68 @@ void LedTestPattern() {
     delay(600);
     digitalWrite(pin, LOW);
   }
+}
+
+bool sd_card_ok_;
+/*
+// If using the SdFat library:
+Sd2Card sd_card_;
+SdVolume sd_volume_;
+SdFile file_root_;
+
+bool InitSdCard() {
+  if (!sd_card_.init()) {
+    Serial.println("Couldnt init SD card.");
+    return false;
+  }
+  if (!sd_volume_.init(sd_card_)) {
+    Serial.println("couldnt init SD volume");
+    return false;
+  }
+  if (!file_root_.openRoot(sd_volume_)) {
+    Serial.println("couldnt open SD root");
+    return false;
+  }
+  Serial.println("Initialized SD card.");
+  return true;
+}
+
+void SDReaderTest() {
+  SdFile logfile;
+  if (!logfile.open(file_root_, "testfile.txt", O_READ)) {
+    Serial.println("Couldnt open file.");
+  } else {
+    int c;
+    while ((c = logfile.read()) > 0) {
+      Serial.print(c);
+    }
+    logfile.close();
+  }
+  delay(2000);
+}
+*/
+
+bool InitSdCard() {
+  if (!SD.begin(SD_CHIP_SELECT_PIN)) {
+    Serial.println("Card failed, or not present");
+    return false;
+  }
+  Serial.println("Initialized SD card.");
+  return true;
+}
+
+// FIXME scaffold
+void SDReaderTest() {
+  if (!sd_card_ok_) return;
+  File logfile = SD.open("testfile.txt", FILE_READ);
+  if (!logfile) {
+    Serial.println("Couldnt open file.");
+  }
+  while (logfile.available()) {
+    Serial.print(logfile.read());
+  }
+  logfile.close();
+  delay(2000);
 }
 
 // FIXME scaffold
@@ -235,6 +315,8 @@ void setup() {
     Serial.print("Set RTC clock to ");
     Serial.println(date_compiled.unixtime(), DEC);
   }
+
+  sd_card_ok_ = InitSdCard();
 
   InitDayCycleTransitions();
 
@@ -546,7 +628,9 @@ void InitStandbyCycle() {
 }
 
 
-unsigned long RtcSecondsSinceMidnight(const DateTime& now) {
+inline unsigned long RtcSecondsSinceMidnight() {
+  // Work around Arduino 22 bug, instead of passing param:
+  const DateTime& now = date_time_now_;
   unsigned long secs = (unsigned long)(now.hour()) * 3600UL +
                        (unsigned long)(now.minute()) * 60UL +
                        now.second();
@@ -559,9 +643,10 @@ void loop() {
   //FindButtonLedPin();
   //LedTestPattern();
   //LedStripTest();
+  SDReaderTest();
 
-  DateTime date_time_now = RTC.now();
-  unsigned long day_time = RtcSecondsSinceMidnight(date_time_now);
+  date_time_now_ = RTC.now();
+  unsigned long day_time = RtcSecondsSinceMidnight();
 
   if (day_cycle_.CheckForTransition(day_time)) {
     if (day_cycle_.state() == ACTIVE) {
@@ -584,7 +669,7 @@ void loop() {
 
   MaybeReadMasterSerial();
 
-  MaybeReportStatus(now, date_time_now);
+  MaybeReportStatus(now);
 
   delay(10); // FIXME
 } 

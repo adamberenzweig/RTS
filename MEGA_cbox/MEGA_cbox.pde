@@ -104,12 +104,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  //{ 19UL * 3600UL + 55UL * 60UL, ACTIVE },
-  //{ 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  //{ 18UL * 3600UL + 50UL * 60UL, STANDBY }
-  { 10UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 10UL * 3600UL + 0UL * 60UL, STANDBY }
+  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;
@@ -132,8 +129,8 @@ void MaybeReadMasterSerial() {
   }
 }
 
-#define MIN_SLAVE_ID 10
-#define MAX_SLAVE_ID 200
+#define MIN_SLAVE_ID 80
+#define MAX_SLAVE_ID 85
 
 byte next_status_id_ = MIN_SLAVE_ID;
 
@@ -148,7 +145,7 @@ String MaybeReplaceStatusId(String& message) {
   Serial.print("STATUS N -> ");
   Serial.println(msg_str);
   ++next_status_id_;
-  if (next_status_id_ == MAX_SLAVE_ID) {
+  if (next_status_id_ > MAX_SLAVE_ID) {
     next_status_id_ = MIN_SLAVE_ID;
   }
   return msg_str;

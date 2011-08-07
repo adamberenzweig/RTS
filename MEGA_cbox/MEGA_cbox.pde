@@ -103,17 +103,17 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
+  //{ 19UL * 3600UL + 55UL * 60UL, ACTIVE },
+  //{ 23UL * 3600UL + 55UL * 60UL, SLEEPING },
+  //{ 18UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 10UL * 3600UL + 55UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 10UL * 3600UL + 0UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;
 
 #define LED_STRIP_PIN 35
-
-// As per Arduino documentation about SD reader on a Mega.
-#define SD_CHIP_SELECT_PIN 53
 
 // Master-Mega communication happens over this port:
 HardwareSerial* master_serial = &Serial1;
@@ -125,8 +125,9 @@ byte serialData[BUFFLEN];
 
 void MaybeReadMasterSerial() {
   if (ReadMessageStringFromSerial(master_serial, serialData, BUFFLEN)) {
-    Serial.print("M ");
-    Serial.println((char*)serialData);
+    String msg = "M ";
+    msg += ((char*)serialData);
+    Log(msg);
   }
 }
 
@@ -151,32 +152,37 @@ void InitDayCycleTransitions() {
 // compiler bug in Arduino 22.
 DateTime date_time_now_;
 
-void PrintDate(HardwareSerial* serial) {
+String FormatDate() {
   // Work around Arduino 22 bug instead of passing param:
   const DateTime& dt = date_time_now_;
-  serial->print(dt.year(), DEC);
-  serial->print("/");
-  serial->print(dt.month(), DEC);
-  serial->print("/");
-  digitalWrite(LED_STRIP_PIN, LOW);
-  digitalWrite(LED_STRIP_PIN, LOW);
-  digitalWrite(LED_STRIP_PIN, LOW);
-  digitalWrite(LED_STRIP_PIN, LOW);
-  digitalWrite(LED_STRIP_PIN, LOW);
-  serial->print(dt.day(), DEC);
-  serial->print(" ");
-  serial->print(dt.hour(), DEC);
-  serial->print(":");
-  serial->print(dt.minute(), DEC);
-  serial->print(":");
-  serial->print(dt.second(), DEC);
+  String msg;
+  msg += String(dt.year(), DEC);
+  msg += String("/");
+  msg += String(dt.month(), DEC);
+  msg += String("/");
+  msg += String(dt.day(), DEC);
+  msg += String(" ");
+  msg += String(dt.hour(), DEC);
+  msg += String(":");
+  msg += String(dt.minute(), DEC);
+  msg += String(":");
+  msg += String(dt.second(), DEC);
+  return msg;
 }
 
 void MaybeReportStatus(unsigned long now) {
   // Work around Arduino 22 bug instead of passing param:
   const DateTime& dt_now = date_time_now_;
   if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
-    //memrep();
+    String msg;
+    msg += "G ";
+    msg += FormatDate();
+    msg += " ";
+    msg += String(now, DEC);
+    msg += " ";
+    msg += String(day_cycle_.state(), DEC);
+    Log(msg);
+    /*
     Serial.print("G ");
     PrintDate(&Serial);
     Serial.print(" ");
@@ -185,6 +191,7 @@ void MaybeReportStatus(unsigned long now) {
     Serial.print(day_cycle_.state(), DEC);
 
     Serial.println();
+    */
   }
 }
 
@@ -198,64 +205,41 @@ void LedTestPattern() {
 }
 
 bool sd_card_ok_;
-/*
-// If using the SdFat library:
-Sd2Card sd_card_;
-SdVolume sd_volume_;
-SdFile file_root_;
 
-bool InitSdCard() {
-  if (!sd_card_.init()) {
-    Serial.println("Couldnt init SD card.");
-    return false;
-  }
-  if (!sd_volume_.init(sd_card_)) {
-    Serial.println("couldnt init SD volume");
-    return false;
-  }
-  if (!file_root_.openRoot(sd_volume_)) {
-    Serial.println("couldnt open SD root");
-    return false;
-  }
-  Serial.println("Initialized SD card.");
-  return true;
-}
+File logfile_;
 
-void SDReaderTest() {
-  SdFile logfile;
-  if (!logfile.open(file_root_, "testfile.txt", O_READ)) {
-    Serial.println("Couldnt open file.");
-  } else {
-    int c;
-    while ((c = logfile.read()) > 0) {
-      Serial.print(c);
-    }
-    logfile.close();
-  }
-  delay(2000);
-}
-*/
+// As per Arduino documentation about SD reader on a Mega.
+#define SD_CHIP_SELECT_PIN 53
 
-bool InitSdCard() {
-  if (!SD.begin(SD_CHIP_SELECT_PIN)) {
+bool InitSdLog() {
+  pinMode(SD_CHIP_SELECT_PIN, OUTPUT);
+  if (!SD.begin()) {
     Serial.println("Card failed, or not present");
     return false;
   }
   Serial.println("Initialized SD card.");
+  logfile_ = SD.open("logfile.txt", FILE_WRITE); // really append.
   return true;
+}
+
+bool Log(const String& msg) {
+  Serial.println(msg);
+  if (sd_card_ok_ && logfile_) {
+    logfile_.println(msg);
+  }
 }
 
 // FIXME scaffold
 void SDReaderTest() {
   if (!sd_card_ok_) return;
-  File logfile = SD.open("testfile.txt", FILE_READ);
-  if (!logfile) {
+  File testfile = SD.open("testfile.txt", FILE_READ);
+  if (!testfile) {
     Serial.println("Couldnt open file.");
   }
-  while (logfile.available()) {
-    Serial.print(logfile.read());
+  while (testfile.available()) {
+    Serial.print(testfile.read(), BYTE);
   }
-  logfile.close();
+  testfile.close();
   delay(2000);
 }
 
@@ -299,6 +283,7 @@ void SignalTest() {
 
 void setup() {
   Serial.begin(9600);
+  // FIXME: Why is this corrupt?
   Serial.println(versionblurb);
 
   Serial1.begin(9600);
@@ -316,7 +301,7 @@ void setup() {
     Serial.println(date_compiled.unixtime(), DEC);
   }
 
-  sd_card_ok_ = InitSdCard();
+  sd_card_ok_ = InitSdLog();
 
   InitDayCycleTransitions();
 
@@ -643,7 +628,7 @@ void loop() {
   //FindButtonLedPin();
   //LedTestPattern();
   //LedStripTest();
-  SDReaderTest();
+  //SDReaderTest();
 
   date_time_now_ = RTC.now();
   unsigned long day_time = RtcSecondsSinceMidnight();

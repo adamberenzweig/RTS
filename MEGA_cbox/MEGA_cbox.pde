@@ -206,8 +206,6 @@ void LedTestPattern() {
 
 bool sd_card_ok_;
 
-File logfile_;
-
 // As per Arduino documentation about SD reader on a Mega.
 #define SD_CHIP_SELECT_PIN 53
 
@@ -218,14 +216,22 @@ bool InitSdLog() {
     return false;
   }
   Serial.println("Initialized SD card.");
-  logfile_ = SD.open("logfile.txt", FILE_WRITE); // really append.
   return true;
+}
+
+File logfile_;
+
+bool OpenLogFile() {
+  if (!sd_card_ok_) return false;
+  logfile_ = SD.open("logfile.txt", FILE_WRITE); // really append.
+  return (logfile_ != NULL);
 }
 
 bool Log(const String& msg) {
   Serial.println(msg);
-  if (sd_card_ok_ && logfile_) {
+  if (OpenLogFile()) {
     logfile_.println(msg);
+    logfile_.close();
   }
 }
 

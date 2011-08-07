@@ -36,11 +36,12 @@ TimedMessage twinkle_messages[] = {
   //{ 10000, "TWK 215 60 0" },  // Sparse blue.
   //{ 10000, "TWK 215 60 1" },  // Sparse white.
   //{ 30000, "TWK 245 10 0" },  // Fast blue.
-  { 30000, "TWK 245 10 0 255" },  // Fast blue odd.
-  { 30000, "TWK 245 10 0 254" },  // Fast blue even.
+  { 25000, "TWK 245 10 0 255" },  // Fast blue odd.
+  { 5000,  "STATUS N" },
+  { 25000, "TWK 245 10 0 254" },  // Fast blue even.
   //{ 10000, "CST 200 0 200 50 51 52" },  // A constellation.
   //{ 10000, "CST 200 200 100 2" },  // A constellation.
-  { 5000,  "STATUS 24" },
+  { 5000,  "STATUS N" },
 };
 
 #define NUM_CONSTELLATIONS 3
@@ -131,9 +132,33 @@ void MaybeReadMasterSerial() {
   }
 }
 
+#define MIN_SLAVE_ID 10
+#define MAX_SLAVE_ID 200
+
+byte next_status_id_ = MIN_SLAVE_ID;
+
+// Replace the special command "STATUS N" with "STATUS <id>", where <id>
+// is next_status_id_, which is then incremented.
+String MaybeReplaceStatusId(String& message) {
+  if (message != "STATUS N") {
+    return message;
+  }
+  String id_string = String(next_status_id_, DEC);
+  String msg_str = message.replace("N", id_string);
+  Serial.print("STATUS N -> ");
+  Serial.println(msg_str);
+  ++next_status_id_;
+  if (next_status_id_ == MAX_SLAVE_ID) {
+    next_status_id_ = MIN_SLAVE_ID;
+  }
+  return msg_str;
+}
+
 // The master needs to be in MESSAGE_SERIAL mode for this.
 inline void SendMessageToMaster() {
-  master_serial->println(message_timer_.current_message_string());
+  String message_string(message_timer_.current_message_string());
+  message_string = MaybeReplaceStatusId(message_string);
+  master_serial->println(message_string);
   // Serial.print("sent: ");  // FIXME debug scaffold
   // Serial.println(message_timer_.current_message_string());
 }

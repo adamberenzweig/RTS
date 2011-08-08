@@ -555,14 +555,19 @@ class ModeController {
   }
 
   void StartConstellationMode(unsigned long now) {
+    // Start the selected constellation mode message timer.
+    int selected_button = button_controller_.selected_button();
+    if (selected_button >= NUM_CONSTELLATIONS) {
+      Serial.println("Constellation # out of range.");
+      return;
+    }
+
     Serial.println("G MODE_CONSTELLATION");
     // Start mode timer and transition.
     mode_timer_start_ = now;
     star_mode_ = MODE_CONSTELLATION;
     button_controller_.TransitionToState(BP_ONE_SELECTED);
 
-    // Start the selected constellation mode message timer.
-    int selected_button = button_controller_.selected_button();
     byte num_msgs = constellation_sequences[selected_button].length;
     Serial.print("Transition to constellation ");
     Serial.print(selected_button, DEC);

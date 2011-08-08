@@ -21,6 +21,9 @@ char* versionblurb = "v.1.0 - Control Box";
 
 #define NUM_BUTTONS 3
 
+#define MIN_SLAVE_ID 20
+#define MAX_SLAVE_ID 30
+
 #define STATUS_INTERVAL_MS 10000UL
 unsigned long last_status_report_ = 0;
 
@@ -32,15 +35,17 @@ int button_led_pins[NUM_BUTTONS] = {
   8, 9, 10,  // PWM pins
 };
 
-TimedMessage twinkle_messages[] = {
-  //{ 10000, "TWK 215 60 0" },  // Sparse blue.
-  //{ 10000, "TWK 215 60 1" },  // Sparse white.
-  //{ 30000, "TWK 245 10 0" },  // Fast blue.
+TimedMessage twinkle_messages_odd[] = {
   { 25000, "TWK 245 10 0 255" },  // Fast blue odd.
   { 5000,  "STATUS N" },
+  { 25000, "TWK 215 60 1 255" },  // Sparse white odd.
+  { 5000,  "STATUS N" },
+};
+
+TimedMessage twinkle_messages_even[] = {
   { 25000, "TWK 245 10 0 254" },  // Fast blue even.
-  //{ 10000, "CST 200 0 200 50 51 52" },  // A constellation.
-  //{ 10000, "CST 200 200 100 2" },  // A constellation.
+  { 5000,  "STATUS N" },
+  { 25000, "TWK 215 60 1 254" },  // Sparse white even.
   { 5000,  "STATUS N" },
 };
 
@@ -128,9 +133,6 @@ void MaybeReadMasterSerial() {
     Log(msg);
   }
 }
-
-#define MIN_SLAVE_ID 80
-#define MAX_SLAVE_ID 85
 
 byte next_status_id_ = MIN_SLAVE_ID;
 
@@ -553,7 +555,7 @@ class ModeController {
   }
 
   void StartConstellationMode(unsigned long now) {
-    Serial.println("G MODE_CONSTELLATION");  // FIXME
+    Serial.println("G MODE_CONSTELLATION");
     // Start mode timer and transition.
     mode_timer_start_ = now;
     star_mode_ = MODE_CONSTELLATION;
@@ -572,7 +574,7 @@ class ModeController {
   }
 
   void StartTwinkleMode() {
-    Serial.println("G MODE_TWINKLE");  // FIXME
+    Serial.println("G MODE_TWINKLE");
     star_mode_ = MODE_TWINKLE;
     // FIXME: This should clear the button signal poll, so that we don't
     // read a button press that happened during constellation mode.
@@ -580,13 +582,21 @@ class ModeController {
     mode_timer_start_ = 0;
 
     // Set the master back to regular twinkle pattern.
-    byte num_msgs = (byte)(sizeof(twinkle_messages)/sizeof(TimedMessage));
-    message_timer_.StartWithMessages(twinkle_messages, num_msgs);
+    const DateTime& now = date_time_now_;
+    if ((now.day() % 2) == 0) {
+      byte num_msgs =
+          (byte)(sizeof(twinkle_messages_even)/sizeof(TimedMessage));
+      message_timer_.StartWithMessages(twinkle_messages_even, num_msgs);
+    } else {
+      byte num_msgs =
+          (byte)(sizeof(twinkle_messages_odd)/sizeof(TimedMessage));
+      message_timer_.StartWithMessages(twinkle_messages_odd, num_msgs);
+    }
     SendMessageToMaster();
   }
 
   void StartInactiveMode() {
-    Serial.println("G MODE_OFF");  // FIXME
+    Serial.println("G MODE_OFF");
     star_mode_ = MODE_OFF;
     button_controller_.TransitionToState(BP_OFF);
     mode_timer_start_ = 0;
@@ -639,7 +649,6 @@ void InitStandbyCycle() {
   mode_controller_.StartInactiveMode();
   digitalWrite(LED_STRIP_PIN, LOW);
 }
-
 
 inline unsigned long RtcSecondsSinceMidnight() {
   // Work around Arduino 22 bug, instead of passing param:

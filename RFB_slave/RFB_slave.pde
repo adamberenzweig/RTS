@@ -46,7 +46,7 @@ Date: September 16, 2010
 #define V_TUNING_FACTOR 4.17
 
 /***************** Early Definitions ******************/
-static char versionblurb[20] = "v.0.6 - SLAVE"; 
+static char versionblurb[20] = "v.1.0 - SLAVE"; 
 #define FIRMWAREVERSION 11 // 1.1, version number needs to fit in byte (0~255) to be able to store it into config
 //#define INTERRUPT_RECEIVE
 /****************************************************/
@@ -102,7 +102,6 @@ unsigned long kRadioSleepTimeMs = MESSAGE_PERIOD_MS - RADIO_WAKE_LEEWAY_MS;
 
 // Voltage thresholder settings.
 #define VOLTAGE_THRESHOLD_WINDOW_SEC 30
-//#define VOLTAGE_THRESHOLD_LOW 0  // FIXME debug
 #define VOLTAGE_THRESHOLD_LOW 3.45
 #define VOLTAGE_THRESHOLD_HIGH 3.50
 
@@ -114,7 +113,7 @@ SmoothedThreshold voltage_threshold_;
 
 // Status/Debug
 #define STATUS_INTERVAL_MS 2000UL
-#define TRANSMIT_STATUS_INTERVAL_MS 900000UL  // 15 minutes
+#define TRANSMIT_STATUS_INTERVAL_MS 0UL  // Code disabled anyway.
 const int debug_level = 0;
 StatusMessage status_;
 
@@ -546,7 +545,7 @@ void LedControlTimeSlice() {
 void FullSleepFor(unsigned int sleep_time_sec) {
   DPrintInt("\nSleeping (s)", sleep_time_sec);
   DPrintln();
-  delay(1);  // Allow the buffer to flush.  FIXME Remove in prod?
+  delay(1);  // Allow the buffer to flush.
 
   // TODO: Make a Twinkler mode for shutting down (fade-out).
   // How to know when it's finished so that we can go to sleep?

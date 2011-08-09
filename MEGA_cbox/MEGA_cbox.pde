@@ -19,20 +19,19 @@ char* versionblurb = "v.1.0 - Control Box";
 #include <Twinkler.h>
 #include <Wire.h>
 
-#define NUM_BUTTONS 3
-
+// For status reporting:
 #define MIN_SLAVE_ID 20
 #define MAX_SLAVE_ID 30
 
-#define STATUS_INTERVAL_MS 10000UL
-unsigned long last_status_report_ = 0;
+#define NUM_BUTTONS 12
 
 int button_signal_pins[NUM_BUTTONS] = {
-  22, 23, 24
+  23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
 };
 
 int button_led_pins[NUM_BUTTONS] = {
-  8, 9, 10,  // PWM pins
+  // PWM pins
+  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
 };
 
 TimedMessage twinkle_messages_odd[] = {
@@ -49,7 +48,7 @@ TimedMessage twinkle_messages_even[] = {
   { 5000,  "STATUS N" },
 };
 
-#define NUM_CONSTELLATIONS 3
+#define NUM_CONSTELLATIONS 12
 TimedMessage constellation_sequence_0[] = 
 {
   { 0, "CST 200 0 200 24" },
@@ -60,7 +59,39 @@ TimedMessage constellation_sequence_1[] = {
 TimedMessage constellation_sequence_2[] = {
   { 0, "CST 200 0 200 22 23 24" },
 };
-// If you change the number of sequences, update NUM_CONSTELLATIONS.
+TimedMessage constellation_sequence_3[] = 
+{
+  { 0, "CST 200 0 200 24" },
+};
+TimedMessage constellation_sequence_4[] = {
+  { 0, "CST 200 0 200 22" },
+};
+TimedMessage constellation_sequence_5[] = {
+  { 0, "CST 200 0 200 22 23 24" },
+};
+TimedMessage constellation_sequence_6[] = 
+{
+  { 0, "CST 200 0 200 24" },
+};
+TimedMessage constellation_sequence_7[] = {
+  { 0, "CST 200 0 200 22" },
+};
+TimedMessage constellation_sequence_8[] = {
+  { 0, "CST 200 0 200 22 23 24" },
+};
+TimedMessage constellation_sequence_9[] = 
+{
+  { 0, "CST 200 0 200 24" },
+};
+TimedMessage constellation_sequence_10[] = {
+  { 0, "CST 200 0 200 22" },
+};
+TimedMessage constellation_sequence_11[] = {
+  { 0, "CST 200 0 200 22 23 24" },
+};
+// If you change the number of sequences, update NUM_CONSTELLATIONS and
+// InitConstellationSequenceArray().
+
 
 struct ConstellationSequence {
   byte length;
@@ -83,6 +114,42 @@ void InitConstellationSequenceArray() {
   constellation_sequences[2].length =
       sizeof(constellation_sequence_2) / sizeof(TimedMessage);
   constellation_sequences[2].sequence = constellation_sequence_2;
+
+  constellation_sequences[3].length =
+      sizeof(constellation_sequence_3) / sizeof(TimedMessage);
+  constellation_sequences[3].sequence = constellation_sequence_3;
+
+  constellation_sequences[4].length =
+      sizeof(constellation_sequence_4) / sizeof(TimedMessage);
+  constellation_sequences[4].sequence = constellation_sequence_4;
+
+  constellation_sequences[5].length =
+      sizeof(constellation_sequence_5) / sizeof(TimedMessage);
+  constellation_sequences[5].sequence = constellation_sequence_5;
+
+  constellation_sequences[6].length =
+      sizeof(constellation_sequence_6) / sizeof(TimedMessage);
+  constellation_sequences[6].sequence = constellation_sequence_6;
+
+  constellation_sequences[7].length =
+      sizeof(constellation_sequence_7) / sizeof(TimedMessage);
+  constellation_sequences[7].sequence = constellation_sequence_7;
+
+  constellation_sequences[8].length =
+      sizeof(constellation_sequence_8) / sizeof(TimedMessage);
+  constellation_sequences[8].sequence = constellation_sequence_8;
+
+  constellation_sequences[9].length =
+      sizeof(constellation_sequence_9) / sizeof(TimedMessage);
+  constellation_sequences[9].sequence = constellation_sequence_9;
+
+  constellation_sequences[10].length =
+      sizeof(constellation_sequence_10) / sizeof(TimedMessage);
+  constellation_sequences[10].sequence = constellation_sequence_10;
+
+  constellation_sequences[11].length =
+      sizeof(constellation_sequence_11) / sizeof(TimedMessage);
+  constellation_sequences[11].sequence = constellation_sequence_11;
 };
 
 TimedMessage bedtime_sequence[] = {
@@ -117,6 +184,9 @@ TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
 MessageTimer message_timer_;
 
 #define LED_STRIP_PIN 35
+
+#define STATUS_INTERVAL_MS 10000UL
+unsigned long last_status_report_ = 0;
 
 // Master-Mega communication happens over this port:
 HardwareSerial* master_serial = &Serial1;

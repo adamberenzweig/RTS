@@ -92,66 +92,6 @@ TimedMessage constellation_sequence_11[] = {
 // If you change the number of sequences, update NUM_CONSTELLATIONS and
 // InitConstellationSequenceArray().
 
-
-struct ConstellationSequence {
-  byte length;
-  TimedMessage* sequence;
-};
-
-ConstellationSequence constellation_sequences[NUM_CONSTELLATIONS];
-
-// Awful. But multidimensional arrays can't have unspecified bound sizes
-// except for the first dimension, so a normal initializer doesn't work.
-void InitConstellationSequenceArray() {
-  constellation_sequences[0].length =
-      sizeof(constellation_sequence_0) / sizeof(TimedMessage);
-  constellation_sequences[0].sequence = constellation_sequence_0;
-
-  constellation_sequences[1].length =
-      sizeof(constellation_sequence_1) / sizeof(TimedMessage);
-  constellation_sequences[1].sequence = constellation_sequence_1;
-
-  constellation_sequences[2].length =
-      sizeof(constellation_sequence_2) / sizeof(TimedMessage);
-  constellation_sequences[2].sequence = constellation_sequence_2;
-
-  constellation_sequences[3].length =
-      sizeof(constellation_sequence_3) / sizeof(TimedMessage);
-  constellation_sequences[3].sequence = constellation_sequence_3;
-
-  constellation_sequences[4].length =
-      sizeof(constellation_sequence_4) / sizeof(TimedMessage);
-  constellation_sequences[4].sequence = constellation_sequence_4;
-
-  constellation_sequences[5].length =
-      sizeof(constellation_sequence_5) / sizeof(TimedMessage);
-  constellation_sequences[5].sequence = constellation_sequence_5;
-
-  constellation_sequences[6].length =
-      sizeof(constellation_sequence_6) / sizeof(TimedMessage);
-  constellation_sequences[6].sequence = constellation_sequence_6;
-
-  constellation_sequences[7].length =
-      sizeof(constellation_sequence_7) / sizeof(TimedMessage);
-  constellation_sequences[7].sequence = constellation_sequence_7;
-
-  constellation_sequences[8].length =
-      sizeof(constellation_sequence_8) / sizeof(TimedMessage);
-  constellation_sequences[8].sequence = constellation_sequence_8;
-
-  constellation_sequences[9].length =
-      sizeof(constellation_sequence_9) / sizeof(TimedMessage);
-  constellation_sequences[9].sequence = constellation_sequence_9;
-
-  constellation_sequences[10].length =
-      sizeof(constellation_sequence_10) / sizeof(TimedMessage);
-  constellation_sequences[10].sequence = constellation_sequence_10;
-
-  constellation_sequences[11].length =
-      sizeof(constellation_sequence_11) / sizeof(TimedMessage);
-  constellation_sequences[11].sequence = constellation_sequence_11;
-};
-
 TimedMessage bedtime_sequence[] = {
   { 4000, "OFF" },
   { 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
@@ -241,6 +181,65 @@ void InitDayCycleTransitions() {
     }
   }
 }
+
+struct ConstellationSequence {
+  byte length;
+  TimedMessage* sequence;
+};
+
+ConstellationSequence constellation_sequences[NUM_CONSTELLATIONS];
+
+// Awful. But multidimensional arrays can't have unspecified bound sizes
+// except for the first dimension, so a normal initializer doesn't work.
+void InitConstellationSequenceArray() {
+  constellation_sequences[0].length =
+      sizeof(constellation_sequence_0) / sizeof(TimedMessage);
+  constellation_sequences[0].sequence = constellation_sequence_0;
+
+  constellation_sequences[1].length =
+      sizeof(constellation_sequence_1) / sizeof(TimedMessage);
+  constellation_sequences[1].sequence = constellation_sequence_1;
+
+  constellation_sequences[2].length =
+      sizeof(constellation_sequence_2) / sizeof(TimedMessage);
+  constellation_sequences[2].sequence = constellation_sequence_2;
+
+  constellation_sequences[3].length =
+      sizeof(constellation_sequence_3) / sizeof(TimedMessage);
+  constellation_sequences[3].sequence = constellation_sequence_3;
+
+  constellation_sequences[4].length =
+      sizeof(constellation_sequence_4) / sizeof(TimedMessage);
+  constellation_sequences[4].sequence = constellation_sequence_4;
+
+  constellation_sequences[5].length =
+      sizeof(constellation_sequence_5) / sizeof(TimedMessage);
+  constellation_sequences[5].sequence = constellation_sequence_5;
+
+  constellation_sequences[6].length =
+      sizeof(constellation_sequence_6) / sizeof(TimedMessage);
+  constellation_sequences[6].sequence = constellation_sequence_6;
+
+  constellation_sequences[7].length =
+      sizeof(constellation_sequence_7) / sizeof(TimedMessage);
+  constellation_sequences[7].sequence = constellation_sequence_7;
+
+  constellation_sequences[8].length =
+      sizeof(constellation_sequence_8) / sizeof(TimedMessage);
+  constellation_sequences[8].sequence = constellation_sequence_8;
+
+  constellation_sequences[9].length =
+      sizeof(constellation_sequence_9) / sizeof(TimedMessage);
+  constellation_sequences[9].sequence = constellation_sequence_9;
+
+  constellation_sequences[10].length =
+      sizeof(constellation_sequence_10) / sizeof(TimedMessage);
+  constellation_sequences[10].sequence = constellation_sequence_10;
+
+  constellation_sequences[11].length =
+      sizeof(constellation_sequence_11) / sizeof(TimedMessage);
+  constellation_sequences[11].sequence = constellation_sequence_11;
+};
 
 // Declare a global DateTime even though we don't need it, to work around a
 // compiler bug in Arduino 22.

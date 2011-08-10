@@ -123,7 +123,7 @@ TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
 
 MessageTimer message_timer_;
 
-#define LED_STRIP_PIN 35
+#define LED_STRIP_PIN 47
 
 #define STATUS_INTERVAL_MS 10000UL
 unsigned long last_status_report_ = 0;

@@ -20,8 +20,8 @@ char* versionblurb = "v.1.0 - Control Box";
 #include <Wire.h>
 
 // For status reporting:
-#define MIN_SLAVE_ID 20
-#define MAX_SLAVE_ID 30
+#define MIN_SLAVE_ID 30
+#define MAX_SLAVE_ID 40
 
 #define NUM_BUTTONS 12
 
@@ -123,7 +123,7 @@ TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
 
 MessageTimer message_timer_;
 
-#define LED_STRIP_PIN 47
+#define LED_STRIP_PIN 49
 
 #define STATUS_INTERVAL_MS 10000UL
 unsigned long last_status_report_ = 0;
@@ -249,6 +249,9 @@ String FormatDate() {
   // Work around Arduino 22 bug instead of passing param:
   const DateTime& dt = date_time_now_;
   String msg;
+  // FIXME:  crashing here sometimes.  probably busting RAM.
+  msg += "date";  // FIXME placeholder.
+  /*
   msg += String(dt.year(), DEC);
   msg += String("/");
   msg += String(dt.month(), DEC);
@@ -260,6 +263,7 @@ String FormatDate() {
   msg += String(dt.minute(), DEC);
   msg += String(":");
   msg += String(dt.second(), DEC);
+  */
   return msg;
 }
 

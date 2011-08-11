@@ -117,7 +117,7 @@ struct TransitionTime {
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
   { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
-  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 0UL * 3600UL + 55UL * 60UL, SLEEPING },
   { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
@@ -249,6 +249,8 @@ String FormatDate() {
   // Work around Arduino 22 bug instead of passing param:
   const DateTime& dt = date_time_now_;
   String msg;
+  msg += "date";
+  /*
   msg += String(dt.year(), DEC);
   msg += String("/");
   msg += String(dt.month(), DEC);
@@ -260,6 +262,7 @@ String FormatDate() {
   msg += String(dt.minute(), DEC);
   msg += String(":");
   msg += String(dt.second(), DEC);
+  */
   return msg;
 }
 

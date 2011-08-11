@@ -28,12 +28,14 @@ char* versionblurb = "v.1.0 - Control Box";
 
 // FIXME Previous size was 26812. Up to 27190.
 int button_signal_pins[NUM_BUTTONS] = {
-  23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
+  //23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
+  // Permuted due to random wiring:
+  23, 45, 41, 31, 29, 27, 37, 39, 25, 35, 33, 43
 };
 
 int button_led_pins[NUM_BUTTONS] = {
-  // PWM pins
-  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+  // PWM pins 2-13.  Permuted due to random wiring:
+  4, 13, 2, 7, 12, 6, 10, 5, 8, 9, 3, 11
 };
 
 FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
@@ -59,6 +61,15 @@ TimedMessage twinkle_messages_even[] = {
 FLASH_STRING(constellation_0, "CST 200 0 200 24");
 FLASH_STRING(constellation_1, "CST 200 0 200 22");
 FLASH_STRING(constellation_2, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_3, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_4, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_5, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_6, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_7, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_8, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_9, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_10, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_11, "CST 200 0 200 22 23 24");
 
 #define NUM_CONSTELLATIONS 12
 TimedMessage constellation_sequence_0[] = 
@@ -134,7 +145,7 @@ struct TransitionTime {
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
   { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
-  { 0UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 1UL * 3600UL + 55UL * 60UL, SLEEPING },
   { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
@@ -260,26 +271,20 @@ void InitConstellationSequenceArray() {
 // compiler bug in Arduino 22.
 DateTime date_time_now_;
 
-String FormatDate() {
+void AppendFormattedDate(String* msg) {
   // Work around Arduino 22 bug instead of passing param:
   const DateTime& dt = date_time_now_;
-  String msg;
-  // FIXME:  crashing here sometimes.  probably busting RAM.
-  msg += "date";  // FIXME placeholder.
-  /*
-  msg += String(dt.year(), DEC);
-  msg += String("/");
-  msg += String(dt.month(), DEC);
-  msg += String("/");
-  msg += String(dt.day(), DEC);
-  msg += String(" ");
-  msg += String(dt.hour(), DEC);
-  msg += String(":");
-  msg += String(dt.minute(), DEC);
-  msg += String(":");
-  msg += String(dt.second(), DEC);
-  */
-  return msg;
+  *msg += long(dt.year());
+  *msg += "/";
+  *msg += long(dt.month());
+  *msg += "/";
+  *msg += long(dt.day());
+  *msg += " ";
+  *msg += long(dt.hour());
+  *msg += ":";
+  *msg += long(dt.minute());
+  *msg += ":";
+  *msg += long(dt.second());
 }
 
 void MaybeReportStatus(unsigned long now) {
@@ -288,28 +293,19 @@ void MaybeReportStatus(unsigned long now) {
   if (IsTimerExpired(now, &last_status_report_, STATUS_INTERVAL_MS)) {
     String msg;
     msg += "G ";
-    msg += FormatDate();
+    AppendFormattedDate(&msg);
     msg += " ";
     msg += String(now, DEC);
     msg += " ";
     msg += String(day_cycle_.state(), DEC);
     Log(msg);
-    /*
-    Serial.print("G ");
-    PrintDate(&Serial);
-    Serial.print(" ");
-    Serial.print(now, DEC);
-    Serial.print(" ");
-    Serial.print(day_cycle_.state(), DEC);
-
-    Serial.println();
-    */
   }
 }
 
 void LedTestPattern() {
   for (int i = 0; i < NUM_BUTTONS; ++i) {
     int pin = button_led_pins[i];
+    Serial.println(pin, DEC);
     digitalWrite(pin, HIGH);
     delay(600);
     digitalWrite(pin, LOW);
@@ -657,10 +653,9 @@ class ModeController {
     button_controller_.TransitionToState(BP_ONE_SELECTED);
 
     byte num_msgs = constellation_sequences[selected_button].length;
-    Serial.print("Transition to constellation ");
-    Serial.print(selected_button, DEC);
-    Serial.print(" with size ");
-    Serial.println(num_msgs, DEC);
+    String msg("G const ");
+    msg += long(selected_button);
+    Log(msg);
     message_timer_.StartWithMessages(
         constellation_sequences[selected_button].sequence, num_msgs);
     SendMessageToMaster();

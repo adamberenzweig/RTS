@@ -26,7 +26,6 @@ char* versionblurb = "v.1.0 - Control Box";
 
 #define NUM_BUTTONS 12
 
-// FIXME Previous size was 26812. Up to 27190.
 int button_signal_pins[NUM_BUTTONS] = {
   //23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
   // Permuted due to random wiring:
@@ -145,7 +144,7 @@ struct TransitionTime {
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
   { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
-  { 1UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
   { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 

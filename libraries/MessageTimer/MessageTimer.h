@@ -24,6 +24,7 @@ Date: 2011-07-19
 #ifndef MESSAGE_TIMER_H
 #define MESSAGE_TIMER_H
 
+#include <avr/pgmspace.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
 #include <RtsUtil.h>
@@ -39,7 +40,7 @@ struct TimedMessage {
   unsigned long duration_ms;
 
   // The message, in the format parseable by RtsMessageParser.
-  char* message;
+  _FLASH_STRING* message;
 };
 
 class MessageTimer {
@@ -67,7 +68,7 @@ class MessageTimer {
 
   void SetTimedMessage(const TimedMessage& timed_message) {
     duration_ms_ = timed_message.duration_ms;
-    SetMessageFromString(timed_message.message);
+    SetMessageFromFlashString(timed_message.message);
     ResetTimer();
   }
 
@@ -100,6 +101,13 @@ class MessageTimer {
     // Make a copy because ParseRtsMessage is destructive.
     // TODO(madadam): Do this nondestructively, avoid the copy, get rid of buf_.
     strncpy(buf_, message, BUFLEN - 1);
+    ParseRtsMessageFromString(buf_, &rts_message_);
+  }
+
+  // Set a message directly.  Doesn't affect the timer.
+  void SetMessageFromFlashString(const _FLASH_STRING* message) {
+    message->copy(buf_, BUFLEN - 1);
+    current_message_string_ = buf_;
     ParseRtsMessageFromString(buf_, &rts_message_);
   }
 

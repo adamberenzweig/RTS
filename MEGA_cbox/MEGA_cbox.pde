@@ -9,6 +9,7 @@ char* versionblurb = "v.1.0 - Control Box";
 #include <DayCycle.h>
 #include "HardwareSerial.h"
 #include <DateTime.h>
+#include <Flash.h>
 #include <MessageTimer.h>
 #include <RtsMessage.h>
 #include <RtsMessageParser.h>
@@ -25,40 +26,55 @@ char* versionblurb = "v.1.0 - Control Box";
 
 #define NUM_BUTTONS 12
 
-int button_signal_pins[NUM_BUTTONS] = {
+// FIXME Previous size was 26812. Up to 27190.
+//int button_signal_pins[NUM_BUTTONS] = {
+FLASH_ARRAY(int, button_signal_pins,
   23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
-};
+  );
 
-int button_led_pins[NUM_BUTTONS] = {
+//int button_led_pins[NUM_BUTTONS] = {
+FLASH_ARRAY(int, button_led_pins,
   // PWM pins
-  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-};
+  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+  );
+
+FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
+FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
+FLASH_STRING(fast_blue_even, "TWK 245 10 0 254");
+FLASH_STRING(sparse_white_even, "TWK 215 60 1 254");
+FLASH_STRING(status_n, "STATUS_N");
 
 TimedMessage twinkle_messages_odd[] = {
-  { 25000, "TWK 245 10 0 255" },  // Fast blue odd.
-  { 5000,  "STATUS N" },
-  { 25000, "TWK 215 60 1 255" },  // Sparse white odd.
-  { 5000,  "STATUS N" },
+  { 25000, &fast_blue_odd },
+  { 5000,  &status_n },
+  { 25000, &sparse_white_odd },
+  { 5000,  &status_n },
 };
 
 TimedMessage twinkle_messages_even[] = {
-  { 25000, "TWK 245 10 0 254" },  // Fast blue even.
-  { 5000,  "STATUS N" },
-  { 25000, "TWK 215 60 1 254" },  // Sparse white even.
-  { 5000,  "STATUS N" },
+  { 25000, &fast_blue_even },
+  { 5000,  &status_n },
+  { 25000, &sparse_white_even },
+  { 5000,  &status_n },
 };
 
-#define NUM_CONSTELLATIONS 12
+FLASH_STRING(constellation_0, "CST 200 0 200 24");
+FLASH_STRING(constellation_1, "CST 200 0 200 22");
+FLASH_STRING(constellation_2, "CST 200 0 200 22 23 24");
+
+#define NUM_CONSTELLATIONS 3
+//#define NUM_CONSTELLATIONS 12
 TimedMessage constellation_sequence_0[] = 
 {
-  { 0, "CST 200 0 200 24" },
+  { 0, &constellation_0 },
 };
 TimedMessage constellation_sequence_1[] = {
-  { 0, "CST 200 0 200 22" },
+  { 0, &constellation_1 },
 };
 TimedMessage constellation_sequence_2[] = {
-  { 0, "CST 200 0 200 22 23 24" },
+  { 0, &constellation_2 },
 };
+/*
 TimedMessage constellation_sequence_3[] = 
 {
   { 0, "CST 200 0 200 24" },
@@ -89,17 +105,23 @@ TimedMessage constellation_sequence_10[] = {
 TimedMessage constellation_sequence_11[] = {
   { 0, "CST 200 0 200 22 23 24" },
 };
+*/
 // If you change the number of sequences, update NUM_CONSTELLATIONS and
 // InitConstellationSequenceArray().
 
+FLASH_STRING(off_msg, "OFF");
+FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
+FLASH_STRING(sleep_5_mins, "SLEEP 5 60");
+
 TimedMessage bedtime_sequence[] = {
-  { 4000, "OFF" },
-  { 0, "SLEEP 60 60" },  // Sleep one hour, indefinitely.
+  { 4000, &off_msg },
+  // Sleep one hour, indefinitely.
+  { 0, &sleep_one_hour },
 };
 
 TimedMessage standby_sequence[] = {
-  { 4000, "OFF" },
-  { 0, "SLEEP 5 60" },  // Sleep 5 minutes.
+  { 4000, &off_msg },
+  { 0, &sleep_5_mins },
 };
 
 // How would star wars work here? I don't think the MessageTimer class will
@@ -117,7 +139,7 @@ struct TransitionTime {
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
   { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
-  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 0UL * 3600UL + 55UL * 60UL, SLEEPING },
   { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
@@ -202,6 +224,7 @@ void InitConstellationSequenceArray() {
       sizeof(constellation_sequence_2) / sizeof(TimedMessage);
   constellation_sequences[2].sequence = constellation_sequence_2;
 
+  /*
   constellation_sequences[3].length =
       sizeof(constellation_sequence_3) / sizeof(TimedMessage);
   constellation_sequences[3].sequence = constellation_sequence_3;
@@ -237,6 +260,7 @@ void InitConstellationSequenceArray() {
   constellation_sequences[11].length =
       sizeof(constellation_sequence_11) / sizeof(TimedMessage);
   constellation_sequences[11].sequence = constellation_sequence_11;
+*/
 };
 
 // Declare a global DateTime even though we don't need it, to work around a
@@ -488,6 +512,8 @@ class Button {
   }
 
   int Read() {
+    Serial.print("reading ");
+    Serial.println(signal_pin_, DEC);
     return digitalRead(signal_pin_);
   }
 

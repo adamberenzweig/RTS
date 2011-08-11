@@ -123,7 +123,7 @@ TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
 
 MessageTimer message_timer_;
 
-#define LED_STRIP_PIN 49
+#define LED_STRIP_PIN 47
 
 #define STATUS_INTERVAL_MS 10000UL
 unsigned long last_status_report_ = 0;
@@ -154,8 +154,6 @@ String MaybeReplaceStatusId(String& message) {
   }
   String id_string = String(next_status_id_, DEC);
   String msg_str = message.replace("N", id_string);
-  Serial.print("STATUS N -> ");
-  Serial.println(msg_str);
   ++next_status_id_;
   if (next_status_id_ > MAX_SLAVE_ID) {
     next_status_id_ = MIN_SLAVE_ID;

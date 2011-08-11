@@ -27,16 +27,14 @@ char* versionblurb = "v.1.0 - Control Box";
 #define NUM_BUTTONS 12
 
 // FIXME Previous size was 26812. Up to 27190.
-//int button_signal_pins[NUM_BUTTONS] = {
-FLASH_ARRAY(int, button_signal_pins,
+int button_signal_pins[NUM_BUTTONS] = {
   23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
-  );
+};
 
-//int button_led_pins[NUM_BUTTONS] = {
-FLASH_ARRAY(int, button_led_pins,
+int button_led_pins[NUM_BUTTONS] = {
   // PWM pins
   2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
-  );
+};
 
 FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
 FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
@@ -62,8 +60,7 @@ FLASH_STRING(constellation_0, "CST 200 0 200 24");
 FLASH_STRING(constellation_1, "CST 200 0 200 22");
 FLASH_STRING(constellation_2, "CST 200 0 200 22 23 24");
 
-#define NUM_CONSTELLATIONS 3
-//#define NUM_CONSTELLATIONS 12
+#define NUM_CONSTELLATIONS 12
 TimedMessage constellation_sequence_0[] = 
 {
   { 0, &constellation_0 },
@@ -74,38 +71,36 @@ TimedMessage constellation_sequence_1[] = {
 TimedMessage constellation_sequence_2[] = {
   { 0, &constellation_2 },
 };
-/*
 TimedMessage constellation_sequence_3[] = 
 {
-  { 0, "CST 200 0 200 24" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_4[] = {
-  { 0, "CST 200 0 200 22" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_5[] = {
-  { 0, "CST 200 0 200 22 23 24" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_6[] = 
 {
-  { 0, "CST 200 0 200 24" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_7[] = {
-  { 0, "CST 200 0 200 22" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_8[] = {
-  { 0, "CST 200 0 200 22 23 24" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_9[] = 
 {
-  { 0, "CST 200 0 200 24" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_10[] = {
-  { 0, "CST 200 0 200 22" },
+  { 0, &constellation_2 },
 };
 TimedMessage constellation_sequence_11[] = {
-  { 0, "CST 200 0 200 22 23 24" },
+  { 0, &constellation_2 },
 };
-*/
 // If you change the number of sequences, update NUM_CONSTELLATIONS and
 // InitConstellationSequenceArray().
 
@@ -224,7 +219,6 @@ void InitConstellationSequenceArray() {
       sizeof(constellation_sequence_2) / sizeof(TimedMessage);
   constellation_sequences[2].sequence = constellation_sequence_2;
 
-  /*
   constellation_sequences[3].length =
       sizeof(constellation_sequence_3) / sizeof(TimedMessage);
   constellation_sequences[3].sequence = constellation_sequence_3;
@@ -260,7 +254,6 @@ void InitConstellationSequenceArray() {
   constellation_sequences[11].length =
       sizeof(constellation_sequence_11) / sizeof(TimedMessage);
   constellation_sequences[11].sequence = constellation_sequence_11;
-*/
 };
 
 // Declare a global DateTime even though we don't need it, to work around a
@@ -512,8 +505,6 @@ class Button {
   }
 
   int Read() {
-    Serial.print("reading ");
-    Serial.println(signal_pin_, DEC);
     return digitalRead(signal_pin_);
   }
 

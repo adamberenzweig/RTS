@@ -51,8 +51,8 @@ class MessageTimer {
   byte* message_data() { return message_data_; }
 
   // It's an error to call this before StartWithMessages.
-  String GetCurrentMessage() const {
-    messages_[current_message_].copy(buf_, BUFLEN - 1);
+  String GetCurrentMessage() {
+    messages_[current_message_].message->copy(buf_, BUFLEN - 1);
     return String(buf_);
   }
 
@@ -107,12 +107,7 @@ class MessageTimer {
 
   // Set a message directly.  Doesn't affect the timer.
   void SetMessageFromFlashString(const _FLASH_STRING* message) {
-    Serial.print("msg: ");
-    message->print(Serial);
-    Serial.println(buf_);  // FIXME scaffold
     message->copy(buf_, BUFLEN - 1);
-    Serial.print("copy: ");
-    Serial.println(buf_);  // FIXME scaffold
     ParseRtsMessageFromString(buf_, &rts_message_);
   }
 

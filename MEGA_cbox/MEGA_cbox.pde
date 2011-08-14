@@ -43,10 +43,13 @@ FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
 FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
 FLASH_STRING(fast_blue_even, "TWK 245 10 0 254");
 FLASH_STRING(sparse_white_even, "TWK 215 60 1 254");
+FLASH_STRING(sparse_blue_even, "TWK 215 60 0 254");
+FLASH_STRING(sparse_blue_all, "TWK 215 60 0");
 FLASH_STRING(status_n, "STATUS N");
-FLASH_STRING(fast_white_select, "TWK 245 10 0 80 81 82 83");
+FLASH_STRING(fast_white_select, "TWK 245 10 1 41 42 43 44 45 198 199");
 // FIXME: other things to test:
 FLASH_STRING(off_select, "OFF 80 81 82 83");
+FLASH_STRING(all_off, "OFF");
 
 TimedMessage twinkle_messages_odd[] = {
   { 25000, &fast_blue_odd },
@@ -56,9 +59,8 @@ TimedMessage twinkle_messages_odd[] = {
 };
 
 TimedMessage twinkle_messages_even[] = {
+  { 5000, &all_off },
   { 25000, &sparse_blue_even },
-  { 5000,  &status_n },
-  { 10000, &fast_white_select },
   { 5000,  &status_n },
 };
 
@@ -66,7 +68,7 @@ FLASH_STRING(constellation_0, "CST 200 0 200 24");
 FLASH_STRING(constellation_1, "CST 200 0 200 22");
 FLASH_STRING(constellation_2, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_3, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_4, "CST 200 0 200 22 23 24");
+FLASH_STRING(constellation_4, "CST 200 0 200 41 42 43 44 45 46 47 48 49 50 51");
 FLASH_STRING(constellation_5, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_6, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_7, "CST 200 0 200 22 23 24");
@@ -88,49 +90,48 @@ TimedMessage constellation_sequence_2[] = {
 };
 TimedMessage constellation_sequence_3[] = 
 {
-  { 0, &constellation_2 },
+  { 0, &constellation_3 },
 };
 TimedMessage constellation_sequence_4[] = {
-  { 0, &constellation_2 },
+  { 0, &constellation_4 },
 };
 TimedMessage constellation_sequence_5[] = {
-  { 0, &constellation_2 },
+  { 0, &constellation_5 },
 };
 TimedMessage constellation_sequence_6[] = 
 {
-  { 0, &constellation_2 },
+  { 0, &constellation_6 },
 };
 TimedMessage constellation_sequence_7[] = {
-  { 0, &constellation_2 },
+  { 0, &constellation_7 },
 };
 TimedMessage constellation_sequence_8[] = {
-  { 0, &constellation_2 },
+  { 0, &constellation_8 },
 };
 TimedMessage constellation_sequence_9[] = 
 {
-  { 0, &constellation_2 },
+  { 0, &constellation_9 },
 };
 TimedMessage constellation_sequence_10[] = {
-  { 0, &constellation_2 },
+  { 0, &constellation_10 },
 };
 TimedMessage constellation_sequence_11[] = {
-  { 0, &constellation_2 },
+  { 0, &constellation_11 },
 };
 // If you change the number of sequences, update NUM_CONSTELLATIONS and
 // InitConstellationSequenceArray().
 
-FLASH_STRING(off_msg, "OFF");
 FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
 FLASH_STRING(sleep_5_mins, "SLEEP 5 60");
 
 TimedMessage bedtime_sequence[] = {
-  { 4000, &off_msg },
+  { 4000, &all_off },
   // Sleep one hour, indefinitely.
   { 0, &sleep_one_hour },
 };
 
 TimedMessage standby_sequence[] = {
-  { 4000, &off_msg },
+  { 4000, &all_off },
   { 0, &sleep_5_mins },
 };
 
@@ -148,7 +149,7 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 14UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 13UL * 3600UL + 55UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
   { 13UL * 3600UL + 50UL * 60UL, STANDBY }
 };
@@ -200,9 +201,6 @@ inline void SendMessageToMaster() {
   String message_string = message_timer_.GetCurrentMessage();
   message_string = MaybeReplaceStatusId(message_string);
   master_serial->println(message_string);
-  Serial.print("sent: ");  // FIXME debug scaffold
-  Serial.println(message_string);
-  Serial.println(message_timer_.current_message_string());
 }
 
 void InitDayCycleTransitions() {

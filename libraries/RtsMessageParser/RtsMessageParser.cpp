@@ -60,7 +60,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       // The first token is the command.
       int maybe_cmd = CommandFromName(tok);
       if (maybe_cmd < 0) {
-        DPrint("Bad cmd");
+        DPrintln("Bad cmd");
         return false;
       }
       command = maybe_cmd;
@@ -73,7 +73,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       // It's a param.
       int val = atoi(tok);
       if (val > 255 || val < 0) {
-        DPrint("Bad prm");
+        DPrintln("Bad prm");
         return false;
       }
       rts_message->addParam(tok_num - 1, val);
@@ -81,7 +81,7 @@ bool ParseRtsMessageFromString(char* input, RtsMessage* rts_message) {
       // It's an ID.
       int id = atoi(tok);
       if (id > 255 || id < 0) {
-        DPrint("Bad id");
+        DPrintln("Bad id");
         return false;
       }
       rts_message->addId(id);

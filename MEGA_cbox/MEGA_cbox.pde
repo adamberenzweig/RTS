@@ -4,7 +4,9 @@ Author: Adam Berenzweig
 ----------
 **************************************/
 
-char* versionblurb = "v.1.0 - Control Box"; 
+char versionblurb[] = "v.1.0 - Control Box"; 
+// Or try:
+// Serial.println(F("v.1.0 - Control Box"));
 
 #include <DayCycle.h>
 #include "HardwareSerial.h"
@@ -41,7 +43,10 @@ FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
 FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
 FLASH_STRING(fast_blue_even, "TWK 245 10 0 254");
 FLASH_STRING(sparse_white_even, "TWK 215 60 1 254");
-FLASH_STRING(status_n, "STATUS_N");
+FLASH_STRING(status_n, "STATUS N");
+FLASH_STRING(fast_white_select, "TWK 245 10 0 80 81 82 83");
+// FIXME: other things to test:
+FLASH_STRING(off_select, "OFF 80 81 82 83");
 
 TimedMessage twinkle_messages_odd[] = {
   { 25000, &fast_blue_odd },
@@ -51,9 +56,9 @@ TimedMessage twinkle_messages_odd[] = {
 };
 
 TimedMessage twinkle_messages_even[] = {
-  { 25000, &fast_blue_even },
+  { 25000, &sparse_blue_even },
   { 5000,  &status_n },
-  { 25000, &sparse_white_even },
+  { 10000, &fast_white_select },
   { 5000,  &status_n },
 };
 
@@ -143,9 +148,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 14UL * 3600UL + 55UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 13UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;
@@ -190,11 +195,14 @@ String MaybeReplaceStatusId(String& message) {
 
 // The master needs to be in MESSAGE_SERIAL mode for this.
 inline void SendMessageToMaster() {
-  String message_string(message_timer_.current_message_string());
+  // TODO(madadam): Avoid all these string copies.  Arduino's String class
+  // doesn't make it easy.
+  String message_string = message_timer_.GetCurrentMessage();
   message_string = MaybeReplaceStatusId(message_string);
   master_serial->println(message_string);
-  // Serial.print("sent: ");  // FIXME debug scaffold
-  // Serial.println(message_timer_.current_message_string());
+  Serial.print("sent: ");  // FIXME debug scaffold
+  Serial.println(message_string);
+  Serial.println(message_timer_.current_message_string());
 }
 
 void InitDayCycleTransitions() {

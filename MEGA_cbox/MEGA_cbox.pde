@@ -59,7 +59,7 @@ TimedMessage twinkle_messages_odd[] = {
 };
 
 TimedMessage twinkle_messages_even[] = {
-  { 5000, &all_off },
+  //{ 5000, &all_off },
   { 25000, &sparse_blue_even },
   { 5000,  &status_n },
 };
@@ -149,9 +149,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 13UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 13UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

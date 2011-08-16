@@ -11,6 +11,7 @@ Several testing modes:
 **************************************/
 
 #include <DayCycle.h>
+#include <Flash.h>
 #include <MemoryFree.h>
 #include <MessageTimer.h>
 #include <PrintUtil.h>
@@ -80,6 +81,8 @@ enum MESSAGE_MODES {
 
 MessageTimer message_timer_;
 
+FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
+
 // Messages to cycle through in test mode 1.
 TimedMessage test_messages[] = {
 //  { 240000, "TWK 215 60 0"},  // Sparse blue twinkle.
@@ -87,7 +90,7 @@ TimedMessage test_messages[] = {
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
 //  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
-  { 60000, "TWK 215 60 0"},  // Sparse blue twinkle.
+  { 60000, &fast_blue_odd },
   /* I think we're busting RAM with all this.
   { 60000, "TWK 215 60 1"},  // Sparse white twinkle.
   { 60000, "TWK 245 10 1"},  // fast white twinkle
@@ -124,9 +127,12 @@ TimedMessage test_messages[] = {
 */
 };
 
+FLASH_STRING(all_off, "OFF");
+FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
+
 TimedMessage bedtime_sequence[] =  {
-  { 4000, "OFF" },
-  { 0,    "SLEEP 60 60", },  // Sleep one hour, indefnitely.
+  { 4000, &all_off  },
+  { 0,    &sleep_one_hour },  // Sleep one hour, indefnitely.
 };
 
 // The index of the current test message.

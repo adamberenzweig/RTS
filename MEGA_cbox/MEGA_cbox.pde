@@ -23,8 +23,8 @@ char versionblurb[] = "v.1.0 - Control Box";
 #include <Wire.h>
 
 // For status reporting:
-#define MIN_SLAVE_ID 30
-#define MAX_SLAVE_ID 40
+#define MIN_SLAVE_ID 2
+#define MAX_SLAVE_ID 201
 
 #define NUM_BUTTONS 12
 
@@ -42,25 +42,24 @@ int button_led_pins[NUM_BUTTONS] = {
 FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
 FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
 FLASH_STRING(fast_blue_even, "TWK 245 10 0 254");
-FLASH_STRING(sparse_white_even, "TWK 215 60 1 254");
-FLASH_STRING(sparse_blue_even, "TWK 215 60 0 254");
-FLASH_STRING(sparse_blue_all, "TWK 215 60 0");
+FLASH_STRING(sparse_white_even, "TWK 215 100 1 254");
+FLASH_STRING(sparse_blue_even, "TWK 215 100 0 254");
+FLASH_STRING(sparse_blue_all, "TWK 225 200 0");
 FLASH_STRING(status_n, "STATUS N");
 FLASH_STRING(fast_white_select, "TWK 245 10 1 41 42 43 44 45 198 199");
 // FIXME: other things to test:
 FLASH_STRING(off_select, "OFF 80 81 82 83");
 FLASH_STRING(all_off, "OFF");
 
+// FIXME: Go back to odd-even twinkling days.
 TimedMessage twinkle_messages_odd[] = {
-  { 25000, &fast_blue_odd },
-  { 5000,  &status_n },
-  { 25000, &sparse_white_odd },
+  { 25000, &sparse_blue_all },
   { 5000,  &status_n },
 };
 
 TimedMessage twinkle_messages_even[] = {
   //{ 5000, &all_off },
-  { 25000, &sparse_blue_even },
+  { 25000, &sparse_blue_all },
   { 5000,  &status_n },
 };
 

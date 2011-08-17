@@ -82,6 +82,7 @@ enum MESSAGE_MODES {
 MessageTimer message_timer_;
 
 FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
+FLASH_STRING(all_off, "OFF");
 
 // Messages to cycle through in test mode 1.
 TimedMessage test_messages[] = {
@@ -127,7 +128,6 @@ TimedMessage test_messages[] = {
 */
 };
 
-FLASH_STRING(all_off, "OFF");
 FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
 
 TimedMessage bedtime_sequence[] =  {

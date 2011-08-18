@@ -42,6 +42,7 @@ int button_led_pins[NUM_BUTTONS] = {
 FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
 FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
 FLASH_STRING(fast_blue_even, "TWK 245 10 0 254");
+FLASH_STRING(fast_blue_all, "TWK 245 10 0");
 FLASH_STRING(sparse_white_even, "TWK 215 100 1 254");
 FLASH_STRING(sparse_blue_even, "TWK 215 100 0 254");
 FLASH_STRING(sparse_blue_all, "TWK 225 200 0");
@@ -53,13 +54,13 @@ FLASH_STRING(all_off, "OFF");
 
 // FIXME: Go back to odd-even twinkling days.
 TimedMessage twinkle_messages_odd[] = {
-  { 25000, &sparse_blue_all },
+  { 25000, &fast_blue_all },
   { 5000,  &status_n },
 };
 
 TimedMessage twinkle_messages_even[] = {
   //{ 5000, &all_off },
-  { 25000, &sparse_blue_all },
+  { 25000, &fast_blue_all },
   { 5000,  &status_n },
 };
 

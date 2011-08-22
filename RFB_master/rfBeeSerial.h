@@ -29,7 +29,12 @@
 #include "rfBeeCore.h"
 #include <avr/pgmspace.h>
 
-#define BUFFLEN CCx_PACKT_LEN
+// This must be at least as big as CCx_PACKT_LEN.  We make it even bigger here
+// so we can hold RtsMessage commands in human-readable form, which can be
+// 4 * 32 = 128 bytes (three characters plus space for each of the 32 bytes in
+// the message).
+#define BUFFLEN 128
+//#define BUFFLEN CCx_PACKT_LEN
 #define SERIALCMDMODE 1
 #define SERIALDATAMODE 0
 #define SERIALCMDTERMINATOR 13  // use <CR> to terminate commands

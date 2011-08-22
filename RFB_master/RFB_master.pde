@@ -94,7 +94,7 @@ TimedMessage test_messages[] = {
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
 //  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
-  { 60000, &sleep_one_hour },
+  { 60000, &all_off },
 //  { 60000, &fast_blue_odd },
 };
 

@@ -71,7 +71,8 @@ enum MESSAGE_MODES {
   // Read messages from the serial port.
   MESSAGE_SERIAL,
 };
-#define MESSAGE_MODE MESSAGE_SERIAL
+//#define MESSAGE_MODE MESSAGE_SERIAL
+#define MESSAGE_MODE TEST_CYCLE
 
 // FIXME:  Getting short on SRAM again because of all the message
 // strings.  Put them in progmem.
@@ -81,8 +82,10 @@ enum MESSAGE_MODES {
 
 MessageTimer message_timer_;
 
-FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
+//FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
+//FLASH_STRING(sleep_15, "SLEEP 15 60");
 FLASH_STRING(all_off, "OFF");
+FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
 
 // Messages to cycle through in test mode 1.
 TimedMessage test_messages[] = {
@@ -91,44 +94,9 @@ TimedMessage test_messages[] = {
 //  { 0,      "SW 20 1 0 2 16"},     // Star wars both ways.
 //  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
-  { 60000, &fast_blue_odd },
-  /* I think we're busting RAM with all this.
-  { 60000, "TWK 215 60 1"},  // Sparse white twinkle.
-  { 60000, "TWK 245 10 1"},  // fast white twinkle
-  { 1000,  "STATUS 68"},  // Tell each puck to report status.
-  { 1000,  "STATUS 69"},
-  { 1000,  "STATUS 70"},
-  { 1000,  "STATUS 71"},
-  { 1000,  "STATUS 72"},
-  { 1000,  "STATUS 73"},
-
-  { 1000,  "STATUS 75"},
-  { 1000,  "STATUS 76"},
-  { 1000,  "STATUS 78"},
-  { 1000,  "STATUS 79"},
-  { 1000,  "STATUS 86"},
-  { 1000,  "STATUS 87"},
-  { 1000,  "STATUS 88"},
-  { 1000,  "STATUS 89"},
-  */
-
-  /*
-  { 10000, "TWK 245 10 1"},  // fast white twinkle
-  { 10000, "STATUS 13"},  // Tell Puck 13 to report status.
-  */
-
-  // "ALL_CST 100 0 100", // All constellation white w/ medium fade-in
-/*  
-  "ALL_TWK 255 255 1",         // fast white
-  "ALL_TWK 20 255 0",          // slow blue
-  "ALL_TWK 20 255 0",          // slow blue
-  "ALL_TWK 20 255 0",          // slow blue
-  "SEL_CST 100 0 100 2 4 6 8", // Every other one constellation white
-  "ALL_OFF",                   // 10 second break
-*/
+  { 60000, &sleep_one_hour },
+//  { 60000, &fast_blue_odd },
 };
-
-FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
 
 TimedMessage bedtime_sequence[] =  {
   { 4000, &all_off  },

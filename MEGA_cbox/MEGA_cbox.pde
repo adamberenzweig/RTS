@@ -31,12 +31,12 @@ char versionblurb[] = "v.1.0 - Control Box";
 int button_signal_pins[NUM_BUTTONS] = {
   //23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45
   // Permuted due to random wiring:
-  23, 45, 41, 31, 29, 27, 37, 39, 25, 35, 33, 43
+  22, 45, 41, 31, 29, 27, 37, 39, 25, 35, 33, 43
 };
 
 int button_led_pins[NUM_BUTTONS] = {
   // PWM pins 2-13.  Permuted due to random wiring:
-  4, 13, 2, 7, 12, 6, 10, 5, 8, 9, 3, 11
+  5, 13, 2, 7, 12, 6, 10, 4, 8, 9, 3, 11
 };
 
 FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
@@ -149,9 +149,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 19UL * 3600UL + 55UL * 60UL, ACTIVE },
+  { 12UL * 3600UL + 55UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 18UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 11UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

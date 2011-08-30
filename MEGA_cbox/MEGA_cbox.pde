@@ -52,16 +52,50 @@ FLASH_STRING(fast_white_select, "TWK 245 10 1 41 42 43 44 45 198 199");
 FLASH_STRING(off_select, "OFF 80 81 82 83");
 FLASH_STRING(all_off, "OFF");
 
-// FIXME: Go back to odd-even twinkling days.
+FLASH_STRING(dim_white_field, "CST 200 0 10");
+FLASH_STRING(select_white_twinkle_1,
+  "TWK 245 30 1 130 131 132 134 135 136 137 139 140 141 143 145 146 149");
+FLASH_STRING(select_white_twinkle_2,
+  "TWK 245 30 1 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79");
+FLASH_STRING(select_white_twinkle_3,
+  "TWK 245 30 1 110 111 112 113 114 118 120 121 122 123 124 125 128 129");
+
+FLASH_STRING(medium_fast_white, "TWK 245 30 1");
+FLASH_STRING(sparse_blue, "TWK 225 70 0");
+FLASH_STRING(all_white, "CST 200 0 200");
+FLASH_STRING(crazy_purple, "TWK 255 1 3");
+
+// TODO: status_n back in rotation?
 TimedMessage twinkle_messages_odd[] = {
-  { 25000, &fast_blue_all },
+  { 1 * 60000, &medium_fast_white },
+  { 1 * 60000, &sparse_blue },
+  { 17000, &all_white },
+  { 17000, &crazy_purple },
+  { 1 * 60000, &sparse_blue },
   { 5000,  &status_n },
+
+  { 10000, &dim_white_field },
+  { 20000, &select_white_twinkle_1 },
+  { 8000, &dim_white_field },
+  { 20000, &select_white_twinkle_2 },
+  { 8000, &dim_white_field },
+  { 20000, &select_white_twinkle_3 },
 };
 
 TimedMessage twinkle_messages_even[] = {
-  //{ 5000, &all_off },
-  { 25000, &fast_blue_all },
+  { 1 * 60000, &medium_fast_white },
+  { 1 * 60000, &sparse_blue },
+  { 17000, &all_white },
+  { 17000, &crazy_purple },
+  { 1 * 60000, &sparse_blue },
   { 5000,  &status_n },
+
+  { 10000, &dim_white_field },
+  { 20000, &select_white_twinkle_1 },
+  { 8000, &dim_white_field },
+  { 20000, &select_white_twinkle_2 },
+  { 8000, &dim_white_field },
+  { 20000, &select_white_twinkle_3 },
 };
 
 FLASH_STRING(constellation_0, "CST 200 0 200 24");
@@ -149,9 +183,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 12UL * 3600UL + 55UL * 60UL, ACTIVE },
-  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 11UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 22UL * 3600UL + 54UL * 60UL, ACTIVE },
+  { 22UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 16UL * 3600UL + 50UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

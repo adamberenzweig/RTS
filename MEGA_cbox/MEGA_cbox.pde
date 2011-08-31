@@ -67,11 +67,11 @@ FLASH_STRING(crazy_purple, "TWK 255 1 3");
 
 // TODO: status_n back in rotation?
 TimedMessage twinkle_messages_odd[] = {
-  { 1 * 60000, &medium_fast_white },
-  { 1 * 60000, &sparse_blue },
+  { 4 * 60000, &medium_fast_white },
+  { 4 * 60000, &sparse_blue },
   { 17000, &all_white },
   { 17000, &crazy_purple },
-  { 1 * 60000, &sparse_blue },
+  { 4 * 60000, &sparse_blue },
   { 5000,  &status_n },
 
   { 10000, &dim_white_field },
@@ -83,11 +83,11 @@ TimedMessage twinkle_messages_odd[] = {
 };
 
 TimedMessage twinkle_messages_even[] = {
-  { 1 * 60000, &medium_fast_white },
-  { 1 * 60000, &sparse_blue },
+  { 4 * 60000, &medium_fast_white },
+  { 4 * 60000, &sparse_blue },
   { 17000, &all_white },
   { 17000, &crazy_purple },
-  { 1 * 60000, &sparse_blue },
+  { 4 * 60000, &sparse_blue },
   { 5000,  &status_n },
 
   { 10000, &dim_white_field },
@@ -98,18 +98,36 @@ TimedMessage twinkle_messages_even[] = {
   { 20000, &select_white_twinkle_3 },
 };
 
-FLASH_STRING(constellation_0, "CST 200 0 200 24");
-FLASH_STRING(constellation_1, "CST 200 0 200 22");
-FLASH_STRING(constellation_2, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_3, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_4, "CST 200 0 200 41 42 43 44 45 46 47 48 49 50 51");
+// Bootes
+FLASH_STRING(constellation_0,
+             "CST 200 0 200 118 161 31 107 71 186 113 68");
+// Pegasus
+FLASH_STRING(constellation_1,
+             "CST 200 0 200 60 107 190 91 92 179 98 164 173");
+// Little Dipper
+FLASH_STRING(constellation_2,
+             "CST 200 0 200 118 155 188 95 94 132 75");
+// Draco
+FLASH_STRING(constellation_3,
+             "CST 200 0 200 121 96 162 106 107 60 104 173 161 140 143");
+// Perseus: FIXME!
+FLASH_STRING(constellation_4,
+     "CST 200 0 200 130 131 132 134 135 136 137 139 140 141 143 145 146 149");
+// Not used.
 FLASH_STRING(constellation_5, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_6, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_7, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_8, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_9, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_10, "CST 200 0 200 22 23 24");
-FLASH_STRING(constellation_11, "CST 200 0 200 22 23 24");
+// Andromeda
+FLASH_STRING(constellation_8,
+       "CST 200 0 200 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77");
+// Canis Major  FIXME!
+FLASH_STRING(constellation_9,
+             "CST 200 0 200 110 111 112 113 114 118 120 121 122 123 124 125");
+// Aquila
+FLASH_STRING(constellation_10,
+             "CST 200 0 200 39 153 36 173 92 64 75 164 3");
+// Hercules.  FIXME incomoplete.  Button broken too.
+FLASH_STRING(constellation_11, "CST 200 0 200 161 92 43 134");
 
 #define NUM_CONSTELLATIONS 12
 TimedMessage constellation_sequence_0[] = 
@@ -183,9 +201,9 @@ struct TransitionTime {
 };
 
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 22UL * 3600UL + 54UL * 60UL, ACTIVE },
-  { 22UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 16UL * 3600UL + 50UL * 60UL, STANDBY }
+  { 19UL * 3600UL + 45UL * 60UL, ACTIVE },
+  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
+  { 17UL * 3600UL + 30UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;
@@ -655,7 +673,7 @@ bool ButtonController::PollButtons() {
   return selected_button_ >= 0;
 }
 
-#define CONSTELLATION_TIME_SEC 20
+#define CONSTELLATION_TIME_SEC 16
 
 class ModeController {
  public:

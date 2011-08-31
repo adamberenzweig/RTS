@@ -71,8 +71,8 @@ enum MESSAGE_MODES {
   // Read messages from the serial port.
   MESSAGE_SERIAL,
 };
-#define MESSAGE_MODE MESSAGE_SERIAL
-//#define MESSAGE_MODE TEST_CYCLE
+//#define MESSAGE_MODE MESSAGE_SERIAL
+#define MESSAGE_MODE TEST_CYCLE
 
 // FIXME:  Getting short on SRAM again because of all the message
 // strings.  Put them in progmem.
@@ -86,6 +86,7 @@ MessageTimer message_timer_;
 //FLASH_STRING(sleep_15, "SLEEP 15 60");
 FLASH_STRING(all_off, "OFF");
 FLASH_STRING(sleep_one_hour, "SLEEP 60 60");
+FLASH_STRING(fast_blue_all, "TWK 245 10 0");
 
 // Messages to cycle through in test mode 1.
 TimedMessage test_messages[] = {
@@ -95,8 +96,8 @@ TimedMessage test_messages[] = {
 //  { 240000, "TWK 245 10 1"},  // fast white twinkle
 
 //  { 60000, &sleep_one_hour },
-  { 60000, &all_off },
-//  { 60000, &fast_blue_odd },
+//  { 60000, &all_off },
+  { 60000, &fast_blue_all },
 };
 
 TimedMessage bedtime_sequence[] =  {

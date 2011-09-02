@@ -39,17 +39,10 @@ int button_led_pins[NUM_BUTTONS] = {
   5, 13, 2, 7, 12, 6, 10, 4, 8, 9, 3, 11
 };
 
-FLASH_STRING(fast_blue_odd, "TWK 245 10 0 255");
-FLASH_STRING(sparse_white_odd, "TWK 215 60 1 255");
-FLASH_STRING(fast_blue_even, "TWK 245 10 0 254");
-FLASH_STRING(fast_blue_all, "TWK 245 10 0");
-FLASH_STRING(sparse_white_even, "TWK 215 100 1 254");
-FLASH_STRING(sparse_blue_even, "TWK 215 100 0 254");
-FLASH_STRING(sparse_blue_all, "TWK 225 200 0");
 FLASH_STRING(status_n, "STATUS N");
 FLASH_STRING(fast_white_select, "TWK 245 10 1 41 42 43 44 45 198 199");
 // FIXME: other things to test:
-FLASH_STRING(off_select, "OFF 80 81 82 83");
+//FLASH_STRING(off_select, "OFF 80 81 82 83");
 FLASH_STRING(all_off, "OFF");
 
 FLASH_STRING(dim_white_field, "CST 200 0 10");
@@ -65,15 +58,33 @@ FLASH_STRING(sparse_blue, "TWK 225 70 0");
 FLASH_STRING(all_white, "CST 200 0 200");
 FLASH_STRING(crazy_purple, "TWK 255 1 3");
 
+FLASH_STRING(medium_fast_white_odd, "TWK 245 30 1 255");
+FLASH_STRING(sparse_blue_odd, "TWK 225 70 0 255");
+FLASH_STRING(all_white_odd, "CST 200 0 200 255");
+FLASH_STRING(crazy_purple_odd, "TWK 255 1 3 255");
+
+FLASH_STRING(medium_fast_white_even, "TWK 245 30 1 254");
+FLASH_STRING(sparse_blue_even, "TWK 225 70 0 254");
+FLASH_STRING(all_white_even, "CST 200 0 200 254");
+FLASH_STRING(crazy_purple_even, "TWK 255 1 3 254");
+
+FLASH_STRING(sleep_one_hour_odd, "SLEEP 60 60 255");
+FLASH_STRING(sleep_one_hour_even, "SLEEP 60 60 254");
+
 // TODO: status_n back in rotation?
 TimedMessage twinkle_messages_odd[] = {
-  { 4 * 60000, &medium_fast_white },
-  { 4 * 60000, &sparse_blue },
-  { 17000, &all_white },
-  { 17000, &crazy_purple },
-  { 4 * 60000, &sparse_blue },
+  { 4 * 60000, &medium_fast_white_odd },
+  { 4 * 60000, &sparse_blue_odd },
+  { 17000, &all_white_odd },
+  { 17000, &crazy_purple_odd },
+  { 4 * 60000, &sparse_blue_odd },
   { 5000,  &status_n },
 
+  // Sleep others.
+  { 5000,  &sleep_one_hour_even },
+
+  // These aren't odd/even, but after the sleep message the others should be
+  // sleeping.
   { 10000, &dim_white_field },
   { 20000, &select_white_twinkle_1 },
   { 8000, &dim_white_field },
@@ -83,13 +94,18 @@ TimedMessage twinkle_messages_odd[] = {
 };
 
 TimedMessage twinkle_messages_even[] = {
-  { 4 * 60000, &medium_fast_white },
-  { 4 * 60000, &sparse_blue },
-  { 17000, &all_white },
-  { 17000, &crazy_purple },
-  { 4 * 60000, &sparse_blue },
+  { 4 * 60000, &medium_fast_white_even },
+  { 4 * 60000, &sparse_blue_even },
+  { 17000, &all_white_even },
+  { 17000, &crazy_purple_even },
+  { 4 * 60000, &sparse_blue_even },
   { 5000,  &status_n },
 
+  // Sleep others.
+  { 5000,  &sleep_one_hour_odd },
+
+  // These aren't odd/even, but after the sleep message the others should be
+  // sleeping.
   { 10000, &dim_white_field },
   { 20000, &select_white_twinkle_1 },
   { 8000, &dim_white_field },
@@ -100,7 +116,8 @@ TimedMessage twinkle_messages_even[] = {
 
 // Bootes
 FLASH_STRING(constellation_0,
-             "CST 200 0 200 118 161 31 107 71 186 113 68");
+             //"CST 200 0 200 118 161 31 107 71 186 113 68");
+             "TWK 255 1 3");
 // Pegasus
 FLASH_STRING(constellation_1,
              "CST 200 0 200 60 107 190 91 92 179 98 164 173");
@@ -112,7 +129,8 @@ FLASH_STRING(constellation_3,
              "CST 200 0 200 121 96 162 106 107 60 104 173 161 140 143");
 // Perseus: FIXME!
 FLASH_STRING(constellation_4,
-     "CST 200 0 200 130 131 132 134 135 136 137 139 140 141 143 145 146 149");
+     //"CST 200 0 200 130 131 132 134 135 136 137 139 140 141 143 145 146 149");
+     "CST 200 0 200");
 // Not used.
 FLASH_STRING(constellation_5, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_6, "CST 200 0 200 22 23 24");
@@ -122,7 +140,8 @@ FLASH_STRING(constellation_8,
        "CST 200 0 200 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77");
 // Canis Major  FIXME!
 FLASH_STRING(constellation_9,
-             "CST 200 0 200 110 111 112 113 114 118 120 121 122 123 124 125");
+             //"CST 200 0 200 110 111 112 113 114 118 120 121 122 123 124 125");
+             "TWK 245 30 1");
 // Aquila
 FLASH_STRING(constellation_10,
              "CST 200 0 200 39 153 36 173 92 64 75 164 3");
@@ -203,7 +222,7 @@ struct TransitionTime {
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
   { 19UL * 3600UL + 45UL * 60UL, ACTIVE },
   { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 17UL * 3600UL + 30UL * 60UL, STANDBY }
+  { 18UL * 3600UL + 45UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;

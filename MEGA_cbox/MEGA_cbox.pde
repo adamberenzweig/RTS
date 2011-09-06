@@ -71,17 +71,16 @@ FLASH_STRING(crazy_purple_even, "TWK 255 1 3 254");
 FLASH_STRING(sleep_one_hour_odd, "SLEEP 60 60 255");
 FLASH_STRING(sleep_one_hour_even, "SLEEP 60 60 254");
 
-// TODO: status_n back in rotation?
 TimedMessage twinkle_messages_odd[] = {
+  // Sleep others.
+  { 5000,  &sleep_one_hour_even },
+
   { 4 * 60000, &medium_fast_white_odd },
   { 4 * 60000, &sparse_blue_odd },
   { 17000, &all_white_odd },
   { 17000, &crazy_purple_odd },
   { 4 * 60000, &sparse_blue_odd },
   { 5000,  &status_n },
-
-  // Sleep others.
-  { 5000,  &sleep_one_hour_even },
 
   // These aren't odd/even, but after the sleep message the others should be
   // sleeping.
@@ -94,15 +93,15 @@ TimedMessage twinkle_messages_odd[] = {
 };
 
 TimedMessage twinkle_messages_even[] = {
+  // Sleep others.
+  { 5000,  &sleep_one_hour_odd },
+
   { 4 * 60000, &medium_fast_white_even },
   { 4 * 60000, &sparse_blue_even },
   { 17000, &all_white_even },
   { 17000, &crazy_purple_even },
   { 4 * 60000, &sparse_blue_even },
   { 5000,  &status_n },
-
-  // Sleep others.
-  { 5000,  &sleep_one_hour_odd },
 
   // These aren't odd/even, but after the sleep message the others should be
   // sleeping.
@@ -137,7 +136,9 @@ FLASH_STRING(constellation_6, "CST 200 0 200 22 23 24");
 FLASH_STRING(constellation_7, "CST 200 0 200 22 23 24");
 // Andromeda
 FLASH_STRING(constellation_8,
-       "CST 200 0 200 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77");
+     //"CST 200 0 200 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77");
+     // FIXME THese responded to status request on 9/5:
+     "CST 200 0 200 87 143 146 149 151 173 179 182 184 185 197");
 // Canis Major  FIXME!
 FLASH_STRING(constellation_9,
              //"CST 200 0 200 110 111 112 113 114 118 120 121 122 123 124 125");
@@ -506,6 +507,8 @@ void setup() {
   InitConstellationSequenceArray();
 
   delay(1000);
+  // The current time is needed to know which active cycle to start.
+  date_time_now_ = RTC.now();
   InitActiveCycle();
 }
 

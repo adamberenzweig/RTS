@@ -4,6 +4,11 @@ Author: Adam Berenzweig
 ----------
 **************************************/
 
+// TODO:
+// * StartTwinkleMode picks randomly between different TimedMessage arrays.
+// * Special command to dump the log file out the serial port; or better,
+//   a separate program just for that.
+
 char versionblurb[] = "v.1.0 - Control Box"; 
 // Or try:
 // Serial.println(F("v.1.0 - Control Box"));

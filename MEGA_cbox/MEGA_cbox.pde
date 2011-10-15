@@ -77,16 +77,27 @@ FLASH_STRING(sleep_one_hour_odd, "SLEEP 60 60 255");
 FLASH_STRING(sleep_one_hour_even, "SLEEP 60 60 254");
 
 TimedMessage twinkle_messages_odd[] = {
+  // Not odd/even for tonight.
+  { 1 * 60000, &medium_fast_white },
+  { 1 * 60000, &sparse_blue },
+  { 17000, &all_white },
+  { 17000, &crazy_purple },
+  //{ 1 * 60000, &sparse_blue },
+  { 5000,  &status_n },
+
+  /*
   // Sleep others.
   { 5000,  &sleep_one_hour_even },
 
-  { 4 * 60000, &medium_fast_white_odd },
-  { 4 * 60000, &sparse_blue_odd },
+  { 1 * 60000, &medium_fast_white_odd },
+  { 1 * 60000, &sparse_blue_odd },
   { 17000, &all_white_odd },
   { 17000, &crazy_purple_odd },
-  { 4 * 60000, &sparse_blue_odd },
+  { 1 * 60000, &sparse_blue_odd },
   { 5000,  &status_n },
+  */
 
+  /*
   // These aren't odd/even, but after the sleep message the others should be
   // sleeping.
   { 10000, &dim_white_field },
@@ -95,19 +106,31 @@ TimedMessage twinkle_messages_odd[] = {
   { 20000, &select_white_twinkle_2 },
   { 8000, &dim_white_field },
   { 20000, &select_white_twinkle_3 },
+  */
 };
 
 TimedMessage twinkle_messages_even[] = {
+  // Not odd/even for tonight.
+  { 1 * 60000, &medium_fast_white },
+  { 1 * 60000, &sparse_blue },
+  { 17000, &all_white },
+  { 17000, &crazy_purple },
+  //{ 1 * 60000, &sparse_blue },
+  { 5000,  &status_n },
+
+  /*
   // Sleep others.
   { 5000,  &sleep_one_hour_odd },
 
-  { 4 * 60000, &medium_fast_white_even },
-  { 4 * 60000, &sparse_blue_even },
+  { 1 * 60000, &medium_fast_white_even },
+  { 1 * 60000, &sparse_blue_even },
   { 17000, &all_white_even },
   { 17000, &crazy_purple_even },
-  { 4 * 60000, &sparse_blue_even },
+  { 1 * 60000, &sparse_blue_even },
   { 5000,  &status_n },
+  */
 
+  /*
   // These aren't odd/even, but after the sleep message the others should be
   // sleeping.
   { 10000, &dim_white_field },
@@ -116,6 +139,7 @@ TimedMessage twinkle_messages_even[] = {
   { 20000, &select_white_twinkle_2 },
   { 8000, &dim_white_field },
   { 20000, &select_white_twinkle_3 },
+  */
 };
 
 // Bootes
@@ -130,7 +154,8 @@ FLASH_STRING(constellation_2,
              "CST 200 0 200 118 155 188 95 94 132 75");
 // Draco
 FLASH_STRING(constellation_3,
-             "CST 200 0 200 121 96 162 106 107 60 104 173 161 140 143");
+             "CST 200 0 200 121 96 162 106 107 60 104 173 161 140 143 "
+             "56 191 48 10 11 9");  // reinforcements
 // Perseus: FIXME!
 FLASH_STRING(constellation_4,
      //"CST 200 0 200 130 131 132 134 135 136 137 139 140 141 143 145 146 149");
@@ -225,10 +250,12 @@ struct TransitionTime {
   byte day_cycle_state;
 };
 
+// Schedule.
 TransitionTime transitions_[NUM_DAY_CYCLE_STATES] = {
-  { 19UL * 3600UL + 45UL * 60UL, ACTIVE },
-  { 23UL * 3600UL + 55UL * 60UL, SLEEPING },
-  { 18UL * 3600UL + 45UL * 60UL, STANDBY }
+  // Sunset is 6:13 on 10/17. Go from 6:15pm to 11pm. Standby starts at 5:15.
+  { 18UL * 3600UL + 15UL * 60UL, ACTIVE },
+  { 23UL * 3600UL + 0UL * 60UL, SLEEPING },
+  { 17UL * 3600UL + 15UL * 60UL, STANDBY }
 };
 
 MessageTimer message_timer_;
